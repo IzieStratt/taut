@@ -50,11 +50,6 @@ Client mod for Slack :D
     - Go to `about:extensions`, enable `Developer mode`, `Load unpacked` the
       extension folder
   - Firefox
-    - Hopefully available on the Firefox Add-ons site soon
-    - Until then, requires
-      [Firefox Developer Edition](https://mozilla.org/firefox/developer) (or
-      Nightly or another fork that allows unsigned extensions)
-    - In `about:config`, set `xpinstall.signatures.required` to `false`
     - Install the [extension](https://taut.jer.app/taut-firefox.xpi)
 
 > Join [#taut](https://hackclub.slack.com/archives/C0A057686SF) on the

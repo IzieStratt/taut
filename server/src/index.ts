@@ -6,7 +6,7 @@ const GH = 'https://github.com/jeremy46231/taut/releases/download'
 
 // every release asset is named taut[.-something...].ext, see scripts/lib/artifacts.ts
 const RELEASE_ASSET =
-  /^\/taut(?:[.-][a-z0-9]+)*\.(?:js|zip|xpi|dmg|exe|AppImage|deb|rpm|pacman)$/
+  /^\/taut(?:[.-][a-z0-9]+)*\.(?:js|json|zip|xpi|dmg|exe|AppImage|deb|rpm|pacman)$/
 
 const REPO_ROUTES: Array<
   [RegExp, release: string, asset: (m: RegExpMatchArray) => string]

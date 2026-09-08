@@ -70,7 +70,9 @@ export async function buildExtension(variants: Variant[]) {
       const manifest = await readJson(path.join(srcDir, 'manifest.json'))
       if (isEmbedded) {
         manifest.description = `${manifest.description} (with embedded app v${versions.taut})`
-        if (browser !== 'firefox') {
+        if (browser === 'firefox') {
+          delete manifest.browser_specific_settings.gecko.update_url
+        } else {
           manifest.version_name = `${manifest.version}-embedded-${versions.taut}`
         }
         const war = manifest.web_accessible_resources
@@ -111,5 +113,25 @@ export async function buildExtension(variants: Variant[]) {
 
       console.log(`[build-extension] dist/extension/${path.basename(zipFile)}`)
     }
+
+    if (browser === 'firefox') await writeFirefoxUpdates(loaderVersion)
   }
+}
+
+async function writeFirefoxUpdates(version: string) {
+  const { id } = (
+    await readJson(path.join(EXTENSION, 'firefox', 'manifest.json'))
+  ).browser_specific_settings.gecko
+  const file = path.join(OUT_ROOT, 'taut-firefox-updates.json')
+  const updates = {
+    addons: {
+      [id]: {
+        updates: [
+          { version, update_link: 'https://taut.jer.app/taut-firefox.xpi' },
+        ],
+      },
+    },
+  }
+  await writeFile(file, `${JSON.stringify(updates, null, 2)}\n`)
+  console.log(`[build-extension] dist/extension/${path.basename(file)}`)
 }

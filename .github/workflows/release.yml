@@ -89,8 +89,37 @@ jobs:
             dist/taut.js \
             dist/taut.debug.js \
             dist/userscript/*.user.js \
-            dist/extension/*.zip \
-            dist/extension/*.xpi
+            dist/extension/*.zip
+
+      - name: Sign and publish the Firefox extension
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+          UPDATES: ${{ github.server_url }}/${{ github.repository }}/releases/download/latest/taut-firefox-updates.json
+        run: |
+          version="$(jq -r .version extension/firefox/manifest.json)"
+          # AMO refuses a version it has already signed
+          published="$(curl -fsSL "$UPDATES" | jq -r '.addons[].updates[0].version')" ||
+            published=""
+          if [ "$version" = "$published" ]; then
+            echo "Firefox $version is already signed and published"
+            exit 0
+          fi
+          if [ -z "$AMO_JWT_ISSUER" ]; then
+            echo "::warning::AMO_JWT_ISSUER not set; the latest release keeps signed Firefox ${published:-none}."
+            exit 0
+          fi
+          npx --yes web-ext@10 sign \
+            --source-dir dist/extension/firefox \
+            --channel unlisted \
+            --api-key "$AMO_JWT_ISSUER" \
+            --api-secret "$AMO_JWT_SECRET" \
+            --artifacts-dir dist/extension/signed
+          mv dist/extension/signed/*.xpi dist/extension/taut-firefox.xpi
+          gh release upload latest --clobber \
+            dist/extension/taut-firefox.xpi \
+            dist/extension/taut-firefox-updates.json
 
       - name: Create desktop release
         if: steps.check.outputs.desktop == 'true'
