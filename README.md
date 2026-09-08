@@ -7,19 +7,16 @@ Client mod for Slack :D
 - Desktop:
   - Windows: [x64](https://taut.jer.app/taut-win.exe) /
     [ARM](https://taut.jer.app/taut-win-arm.exe)
-    - You may need to close Slack before installing
   - MacOS: [Apple Silicon](https://taut.jer.app/taut-mac.dmg) /
     [Intel](https://taut.jer.app/taut-mac-x64.dmg)
     - Run before launching:
       `xattr -d com.apple.quarantine /Applications/Taut.app`
-  - Linux: x64 as [AppImage](https://taut.jer.app/taut-linux.AppImage) /
+  - Linux:
+    [AppImage](https://taut.jer.app/taut-linux.AppImage) /
     [deb](https://taut.jer.app/taut-linux.deb) /
     [rpm](https://taut.jer.app/taut-linux.rpm) /
-    [pacman](https://taut.jer.app/taut-linux.pacman), ARM as
-    [AppImage](https://taut.jer.app/taut-linux-arm.AppImage) /
-    [deb](https://taut.jer.app/taut-linux-arm.deb) /
-    [rpm](https://taut.jer.app/taut-linux-arm.rpm) /
-    [pacman](https://taut.jer.app/taut-linux-arm.pacman)
+    [pacman](https://taut.jer.app/taut-linux.pacman)
+    (x64, Slack doesn't support Linux ARM)
     - Or add the repository:
       - Debian / Ubuntu:
         ```sh
@@ -33,7 +30,6 @@ Client mod for Slack :D
         sudo dnf install taut
         ```
   - Runs separately from your normal Slack desktop app!
-  - Cannot run at the same time as normal Slack
 - Userscript:
   - Requires [Tampermonkey](https://tampermonkey.net/#download), no Safari
   - Set these settings in the Tampermonkey dashboard > `Settings`
@@ -108,8 +104,8 @@ if you prefer it (`bun install`, and `bun run` in place of `npm run --`).
 `npm run build` builds the app bundle, extensions and userscript into
 [`dist/`](dist/). Pass target names to build a subset, `--embedded` (and/or
 `--standard`) to pick variants, and for the desktop app (much slower than
-everything else) platform names: `win` `win-arm` `mac` `mac-x64` `linux`
-`linux-arm` or `all`, defaulting to the machine you're on. For example
+everything else) platform names: `win` `win-arm` `mac` `mac-x64` `linux` or
+`all`, defaulting to the machine you're on. For example
 `npm run build -- desktop mac win --embedded`. `npm run build -- --help` lists it
 all. `npm run dev` serves a live-rebuilding debug bundle for the `Dev server` loader
 option.

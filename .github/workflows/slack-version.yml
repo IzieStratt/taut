@@ -1,0 +1,73 @@
+name: Slack version
+
+on:
+  schedule:
+    - cron: '22 8 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - id: versions
+        run: |
+          LATEST=$(curl -fsSL 'https://slack.com/api/desktop.latestRelease?arch=x64&variant=deb' | jq -r .version)
+          CURRENT=$(jq -r .slackVersion desktop/package.json)
+          echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
+          echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
+          echo "Slack $LATEST is the latest, Taut is on $CURRENT"
+
+      - if: steps.versions.outputs.latest != steps.versions.outputs.current
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - if: steps.versions.outputs.latest != steps.versions.outputs.current
+        id: electron
+        env:
+          LATEST: ${{ steps.versions.outputs.latest }}
+        run: |
+          curl -fsSL "https://downloads.slack-edge.com/desktop-releases/linux/x64/$LATEST/slack-desktop-$LATEST-amd64.deb" -o slack.deb
+          ar p slack.deb data.tar.xz | tar -xJ --strip-components=5 ./usr/lib/slack/resources/app.asar
+          npx --yes @electron/asar extract-file app.asar package.json
+          echo "slack=$(jq -r .devDependencies.electron package.json)" >> "$GITHUB_OUTPUT"
+          echo "taut=$(jq -r .devDependencies.electron "$GITHUB_WORKSPACE/package.json")" >> "$GITHUB_OUTPUT"
+          rm slack.deb app.asar package.json
+
+      - if: steps.versions.outputs.latest != steps.versions.outputs.current
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LATEST: ${{ steps.versions.outputs.latest }}
+          CURRENT: ${{ steps.versions.outputs.current }}
+          SLACK_ELECTRON: ${{ steps.electron.outputs.slack }}
+          TAUT_ELECTRON: ${{ steps.electron.outputs.taut }}
+        run: |
+          BRANCH="slack-$LATEST"
+          if gh pr list --head "$BRANCH" --state open --json number --jq length | grep -qv '^0$'; then
+            echo "pull request for $BRANCH already open"; exit 0
+          fi
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git switch -c "$BRANCH"
+          npm --prefix desktop version patch --no-git-tag-version
+          node -e '
+            const fs = require("fs")
+            const pkg = JSON.parse(fs.readFileSync("desktop/package.json", "utf8"))
+            pkg.slackVersion = process.env.LATEST
+            fs.writeFileSync("desktop/package.json", `${JSON.stringify(pkg, null, 2)}\n`)
+          '
+          if [ "$SLACK_ELECTRON" = "$TAUT_ELECTRON" ]; then
+            ELECTRON_NOTE=""
+          else
+            npm install --package-lock-only --save-exact --no-audit --no-fund "electron@$SLACK_ELECTRON"
+            ELECTRON_NOTE=" Electron updated from $TAUT_ELECTRON to $SLACK_ELECTRON."
+          fi
+          git commit -am "update to slack $LATEST"
+          git push -u origin "$BRANCH"
+          gh pr create --title "Slack $LATEST" --body "Slack released $LATEST (Taut uses $CURRENT).$ELECTRON_NOTE"

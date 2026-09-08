@@ -21,7 +21,12 @@ import { setupBridge } from './bridge.js'
 import { applyPatches, setOpenOptionsWindow } from './patch.js'
 import { getAppUrl, getNotifPrompted, loadPrefs, savePrefs } from './prefs.js'
 import { setupSession } from './session.js'
-import { findSlackAsar } from './slackFinder.js'
+import {
+  cachedSlackAsar,
+  downloadSlack,
+  downloadSlackWithWindow,
+} from './slackDownload.js'
+import { findInstalledSlackAsar } from './slackFinder.js'
 
 const cjsRequire = createRequire(import.meta.url)
 
@@ -48,19 +53,35 @@ if (__TAUT_EMBEDDED__) {
   ])
 }
 
-let slackAsarPath: string
-try {
-  slackAsarPath = findSlackAsar()
-} catch (err) {
-  await app.whenReady()
-  dialog.showMessageBoxSync({
-    type: 'error',
-    title: 'Taut',
-    message: 'Slack could not be found',
-    detail: `${String((err as Error).message)}. Install the official Slack app, then open Taut again, or set TAUT_SLACK_ASAR to the path of Slack's app.asar.`,
-    buttons: ['Quit'],
+function resolveSlackAsar(): string | undefined {
+  const override = process.env.TAUT_SLACK_ASAR
+  if (override) return override
+  const cached = cachedSlackAsar()
+  if (cached) return cached
+  const installed = findInstalledSlackAsar()
+  if (installed) {
+    app
+      .whenReady()
+      .then(() =>
+        downloadSlack().catch((err) =>
+          console.warn('[Taut] Background Slack download failed:', err)
+        )
+      )
+  }
+  return installed
+}
+
+const slackAsarPath = resolveSlackAsar()
+if (slackAsarPath) {
+  startSlack(slackAsarPath)
+} else {
+  // first launch, can't find slack
+  app.whenReady().then(async () => {
+    await downloadSlackWithWindow()
+    // slack has to run before the app is ready
+    app.relaunch()
+    app.exit(0)
   })
-  process.exit(1)
 }
 
 function openOptionsWindow() {
@@ -84,109 +105,111 @@ function openOptionsWindow() {
   win.setMenu(null)
 }
 
-setOpenOptionsWindow(openOptionsWindow)
+function startSlack(slackAsarPath: string) {
+  setOpenOptionsWindow(openOptionsWindow)
 
-// the desktop entry has to exist before xdg is asked to route slack:// to it
-void installAppImageDesktopEntry().then(() => {
-  const ok = app.setAsDefaultProtocolClient('slack')
-  console.log(
-    ok
-      ? '[Taut] Registered as slack:// handler'
-      : '[Taut] Failed to register as slack:// handler'
-  )
-})
-applyPatches(slackAsarPath, path.join(__dirname, 'preload.js'))
-
-function requestNotificationPermission() {
-  try {
-    if (!Notification.isSupported()) return
-    if (getNotifPrompted()) return
-    const notification = new Notification({
-      title: 'Taut',
-      body: 'Notifications are enabled! Manage them in System Settings > Notifications.',
-    })
-    notification.show()
-    savePrefs({ notifPrompted: true })
-  } catch (e: any) {
-    console.error('[Taut] Notification permission request failed:', e.message)
-  }
-}
-
-app.whenReady().then(async () => {
-  requestNotificationPermission()
-  setupSession(realResourcesPath)
-
-  try {
-    await installExtension(REACT_DEVELOPER_TOOLS)
-    // Workaround for https://github.com/electron/electron/issues/41613
-    const extensions = (
-      session.defaultSession as any
-    ).extensions.getAllExtensions() as any[]
-    for (const ext of extensions) {
-      if (
-        ext.manifest?.manifest_version === 3 &&
-        ext.manifest?.background?.service_worker
-      ) {
-        await (
-          session.defaultSession as any
-        ).serviceWorkers.startWorkerForScope(ext.url)
-      }
-    }
-    console.log('[Taut] React Developer Tools installed')
-  } catch (err) {
-    console.error('[Taut] Failed to install React Developer Tools:', err)
-  }
-})
-
-setupBridge(
-  {
-    configDir: path.join(app.getPath('appData'), 'Taut'),
-  },
-  {
-    getAppUrl,
-    setAppUrl: (url: string) => savePrefs({ appUrl: url }),
-    openOptionsWindow,
-  }
-)
-
-// Handle slack:// URLs passed as CLI args
-const slackArgUrl = process.argv.find((a) => a.startsWith('slack://'))
-if (slackArgUrl) {
-  app.whenReady().then(() => {
+  // the desktop entry has to exist before xdg is asked to route slack:// to it
+  void installAppImageDesktopEntry().then(() => {
+    const ok = app.setAsDefaultProtocolClient('slack')
     console.log(
-      `[Taut] slack:// URL in argv, emitting open-url: ${slackArgUrl}`
+      ok
+        ? '[Taut] Registered as slack:// handler'
+        : '[Taut] Failed to register as slack:// handler'
     )
-    app.emit('open-url', { preventDefault() {} }, slackArgUrl)
   })
-}
+  applyPatches(slackAsarPath, path.join(__dirname, 'preload.js'))
 
-process.on('uncaughtException', (err) => {
-  console.error('[Taut] Uncaught exception:', err)
-})
-process.on('unhandledRejection', (reason) => {
-  console.error('[Taut] Unhandled rejection:', reason)
-})
-app.on('before-quit', (_e) => {
-  console.log('[Taut] App quitting (before-quit fired)')
-})
-app.on('window-all-closed', () => {
-  console.log('[Taut] All windows closed')
-})
+  function requestNotificationPermission() {
+    try {
+      if (!Notification.isSupported()) return
+      if (getNotifPrompted()) return
+      const notification = new Notification({
+        title: 'Taut',
+        body: 'Notifications are enabled! Manage them in System Settings > Notifications.',
+      })
+      notification.show()
+      savePrefs({ notifPrompted: true })
+    } catch (e: any) {
+      console.error('[Taut] Notification permission request failed:', e.message)
+    }
+  }
 
-// Load Slack
-console.log(`[Taut] Loading Slack from ${slackAsarPath}`)
-try {
-  cjsRequire(slackAsarPath)
-} catch (err) {
-  console.error('[Taut] Failed to load Slack:', err)
-  app.whenReady().then(() => {
-    dialog.showMessageBoxSync({
-      type: 'error',
-      title: 'Taut',
-      message: 'Failed to load Slack',
-      detail: String(err),
-      buttons: ['Quit'],
+  app.whenReady().then(async () => {
+    requestNotificationPermission()
+    setupSession(realResourcesPath)
+
+    try {
+      await installExtension(REACT_DEVELOPER_TOOLS)
+      // Workaround for https://github.com/electron/electron/issues/41613
+      const extensions = (
+        session.defaultSession as any
+      ).extensions.getAllExtensions() as any[]
+      for (const ext of extensions) {
+        if (
+          ext.manifest?.manifest_version === 3 &&
+          ext.manifest?.background?.service_worker
+        ) {
+          await (
+            session.defaultSession as any
+          ).serviceWorkers.startWorkerForScope(ext.url)
+        }
+      }
+      console.log('[Taut] React Developer Tools installed')
+    } catch (err) {
+      console.error('[Taut] Failed to install React Developer Tools:', err)
+    }
+  })
+
+  setupBridge(
+    {
+      configDir: path.join(app.getPath('appData'), 'Taut'),
+    },
+    {
+      getAppUrl,
+      setAppUrl: (url: string) => savePrefs({ appUrl: url }),
+      openOptionsWindow,
+    }
+  )
+
+  // Handle slack:// URLs passed as CLI args
+  const slackArgUrl = process.argv.find((a) => a.startsWith('slack://'))
+  if (slackArgUrl) {
+    app.whenReady().then(() => {
+      console.log(
+        `[Taut] slack:// URL in argv, emitting open-url: ${slackArgUrl}`
+      )
+      app.emit('open-url', { preventDefault() {} }, slackArgUrl)
     })
-    app.exit(1)
+  }
+
+  process.on('uncaughtException', (err) => {
+    console.error('[Taut] Uncaught exception:', err)
   })
+  process.on('unhandledRejection', (reason) => {
+    console.error('[Taut] Unhandled rejection:', reason)
+  })
+  app.on('before-quit', (_e) => {
+    console.log('[Taut] App quitting (before-quit fired)')
+  })
+  app.on('window-all-closed', () => {
+    console.log('[Taut] All windows closed')
+  })
+
+  // Load Slack
+  console.log(`[Taut] Loading Slack from ${slackAsarPath}`)
+  try {
+    cjsRequire(slackAsarPath)
+  } catch (err) {
+    console.error('[Taut] Failed to load Slack:', err)
+    app.whenReady().then(() => {
+      dialog.showMessageBoxSync({
+        type: 'error',
+        title: 'Taut',
+        message: 'Failed to load Slack',
+        detail: String(err),
+        buttons: ['Quit'],
+      })
+      app.exit(1)
+    })
+  }
 }

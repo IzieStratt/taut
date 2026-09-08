@@ -13,10 +13,10 @@ if (!/^\d/.test(electron)) {
 }
 
 export const versions = {
-  /** The taut.js app bundle */
   taut: rootPkg.version as string,
   electron,
   desktop: json(path.join(DESKTOP, 'package.json')).version as string,
+  slack: json(path.join(DESKTOP, 'package.json')).slackVersion as string,
   chromeExtension: json(path.join(EXTENSION, 'chrome', 'manifest.json'))
     .version as string,
   firefoxExtension: json(path.join(EXTENSION, 'firefox', 'manifest.json'))

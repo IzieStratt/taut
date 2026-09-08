@@ -230,5 +230,5 @@ export function applyPatches(slackAsarPath: string, tautPreloadPath: string) {
     value: slackResourcesPath,
   })
   app.getAppPath = () => slackAsarPath
-  app.setPath('userData', path.join(app.getPath('appData'), 'Slack'))
+  app.setPath('userData', path.join(app.getPath('appData'), 'Taut', 'profile'))
 }

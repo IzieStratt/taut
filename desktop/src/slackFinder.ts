@@ -37,13 +37,8 @@ function findStorePackageFullNames(prefix: string): string[] {
     })
 }
 
-export function findSlackAsar(): string {
-  const override = process.env.TAUT_SLACK_ASAR
-  if (override) {
-    if (existsSync(override)) return override
-    throw new Error(`TAUT_SLACK_ASAR is set but ${override} does not exist`)
-  }
-
+/** app.asar of an officially installed Slack, if there is one */
+export function findInstalledSlackAsar(): string | undefined {
   const candidates: string[] = []
   const home = os.homedir()
 
@@ -105,7 +100,5 @@ export function findSlackAsar(): string {
       break
   }
 
-  const found = candidates.find((p) => existsSync(p))
-  if (!found) throw new Error('Slack installation not found')
-  return found
+  return candidates.find((p) => existsSync(p))
 }

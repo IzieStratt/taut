@@ -1,0 +1,28 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Taut</title>
+<style>
+  :root {
+    color-scheme: light dark;
+  }
+  body {
+    font: 13px system-ui, sans-serif;
+    margin: 20px 24px;
+  }
+  progress {
+    display: block;
+    width: 100%;
+    margin-top: 12px;
+  }
+</style>
+<div id="text">Downloading Slack</div>
+<progress id="bar"></progress>
+<script>
+  // called from the main process through executeJavaScript
+  window.update = ({ text, value }) => {
+    document.getElementById('text').textContent = text
+    const bar = document.getElementById('bar')
+    if (value == null) bar.removeAttribute('value')
+    else bar.value = value
+  }
+</script>

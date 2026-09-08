@@ -97,7 +97,7 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            platforms: linux linux-arm win win-arm
+            platforms: linux win win-arm
           - os: macos-latest
             platforms: mac mac-x64
     runs-on: ${{ matrix.os }}

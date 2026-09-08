@@ -64,6 +64,7 @@ async function buildJs(variant: Variant) {
   const define = {
     __TAUT_EMBEDDED__: String(isEmbedded),
     __TAUT_LOADER_VERSION__: JSON.stringify(versions.desktop),
+    __TAUT_SLACK_VERSION__: JSON.stringify(versions.slack),
   }
 
   await rm(STAGE, { recursive: true, force: true })
@@ -75,6 +76,10 @@ async function buildJs(variant: Variant) {
     { entry: 'main.ts', out: 'main.js', format: 'esm' },
   ] as const
 
+  // commonjs dependencies of the esm main bundle still call require('electron')
+  const esmRequire =
+    "import { createRequire as createNodeRequire } from 'node:module'; const require = createNodeRequire(import.meta.url);"
+
   await Promise.all(
     entries.map(({ entry, out, format }) =>
       build({
@@ -85,6 +90,7 @@ async function buildJs(variant: Variant) {
         format,
         define,
         external: ['electron'],
+        banner: format === 'esm' ? { js: esmRequire } : {},
       })
     )
   )
@@ -93,6 +99,7 @@ async function buildJs(variant: Variant) {
   await writeFile(path.join(STAGE, 'options.html'), options.html)
   await writeFile(path.join(STAGE, 'options.js'), options.js)
   await cp(ICON, path.join(STAGE, 'icon.png'))
+  await cp(path.join(SRC, 'download.html'), path.join(STAGE, 'download.html'))
 }
 
 // electron-builder config per (variant, platform)
