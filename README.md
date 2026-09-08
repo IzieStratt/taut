@@ -12,8 +12,14 @@ Client mod for Slack :D
     [Intel](https://taut.jer.app/taut-mac-x64.dmg)
     - Run before launching:
       `xattr -d com.apple.quarantine /Applications/Taut.app`
-  - Linux: [x64](https://taut.jer.app/taut-linux.AppImage) /
-    [ARM](https://taut.jer.app/taut-linux-arm.AppImage)
+  - Linux: x64 as [AppImage](https://taut.jer.app/taut-linux.AppImage) /
+    [deb](https://taut.jer.app/taut-linux.deb) /
+    [rpm](https://taut.jer.app/taut-linux.rpm) /
+    [pacman](https://taut.jer.app/taut-linux.pacman), ARM as
+    [AppImage](https://taut.jer.app/taut-linux-arm.AppImage) /
+    [deb](https://taut.jer.app/taut-linux-arm.deb) /
+    [rpm](https://taut.jer.app/taut-linux-arm.rpm) /
+    [pacman](https://taut.jer.app/taut-linux-arm.pacman)
   - Runs separately from your normal Slack desktop app!
   - Cannot run at the same time as normal Slack
 - Userscript:
@@ -70,7 +76,7 @@ Change how Taut is loaded:
   - `Official` - Normal build, always up-to-date
   - `Official (sourcemaps)` - Same as Official, but original `.ts` and `.tsx`
     files show up in DevTools for better debugging, ~250kb more
-  - `Dev server` - Loads from `bun dev` running locally on `localhost:3000`
+  - `Dev server` - Loads from `npm run dev` running locally on `localhost:3000`
   - `Embedded copy` (only on custom embedded builds) - Loads the copy of Taut
     stored inside the loader
 
@@ -85,12 +91,16 @@ and different loaders (including [desktop](desktop/), the
 of the app bundle inside of it, otherwise it is loaded from
 [taut.jer.app](https://taut.jer.app/taut.js) by default.
 
-The project uses [Bun](https://bun.sh) for development (`npm i -g bun` if you
-need it). After installing and building everything (`bun run build`), output
-files will be in [`dist/`](dist/). Desktop (much slower than everything else) is
-built separately with `bun build:desktop [names...]`, where each name is a
-platform (`win` `win-arm` `mac` `mac-x64` `linux` `linux-arm`, or `all`) and/or
-a variant (`standard` `embedded`), e.g. `bun build:desktop mac win embedded`.
+The build runs on Node 22.18+ with npm (`npm ci`), or on [Bun](https://bun.sh)
+if you prefer it (`bun install`, and `bun run` in place of `npm run --`).
+`npm run build` builds the app bundle, extensions and userscript into
+[`dist/`](dist/). Pass target names to build a subset, `--embedded` (and/or
+`--standard`) to pick variants, and for the desktop app (much slower than
+everything else) platform names: `win` `win-arm` `mac` `mac-x64` `linux`
+`linux-arm` or `all`, defaulting to the machine you're on. For example
+`npm run build -- desktop mac win --embedded`. `npm run build -- --help` lists it
+all. `npm run dev` serves a live-rebuilding debug bundle for the `Dev server` loader
+option.
 
 PRs are very welcome! You should join the
 [#taut](https://hackclub.slack.com/archives/C0A057686SF) channel on the

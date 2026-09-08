@@ -1,8 +1,10 @@
-// Shared compiler for bundled and user plugins.
+// Shared compiler for bundled and user plugins
 
-const globalPluginShim = {
+import { build, type Plugin } from 'esbuild'
+
+const globalPluginShim: Plugin = {
   name: 'global-plugin-shim',
-  setup(build: any) {
+  setup(build) {
     build.onResolve({ filter: /^\$taut$/ }, () => ({
       path: '$taut',
       namespace: 'taut-global',
@@ -22,21 +24,19 @@ export async function bundlePlugin(
   entrypoint: string,
   debug = false
 ): Promise<string> {
-  const result = await Bun.build({
-    entrypoints: [entrypoint],
-    target: 'browser',
+  const result = await build({
+    entryPoints: [entrypoint],
+    bundle: true,
+    write: false,
+    platform: 'browser',
     format: 'esm',
     minify: !debug,
-    sourcemap: debug ? 'inline' : 'none',
+    sourcemap: debug ? 'inline' : false,
     plugins: [globalPluginShim],
     define: { process: 'undefined' },
   })
 
-  if (!result.success) {
-    throw new AggregateError(result.logs, `Failed to bundle ${entrypoint}`)
-  }
-
-  let code = await result.outputs[0].text()
+  let code = result.outputFiles[0].text
   code = `(() => {\n${code}\n})()`
   code = code.replace(/export\s*{\s*(\w+)\s+as\s+default\s*};?/g, 'return $1;')
   code = code.replace(/export\s+default\s+(\w+);?/g, 'return $1;')

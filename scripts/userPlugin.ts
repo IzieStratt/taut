@@ -1,14 +1,15 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 
 // Builds one user plugin into the format accepted by Taut's import UI.
 
+import { writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { bundlePlugin } from './pluginBuild'
+import { bundlePlugin } from './lib/plugin.ts'
 
 const [, , inputArg, outputArg] = process.argv
 if (!inputArg) {
   console.error(
-    'Usage: bun run build:user-plugin <plugin.ts|plugin.tsx> [output.js]'
+    'Usage: npm run build:user-plugin -- <plugin.ts|plugin.tsx> [output.js]'
   )
   process.exit(1)
 }
@@ -21,7 +22,7 @@ const output = outputArg
 
 try {
   const code = await bundlePlugin(input)
-  await Bun.write(output, code)
+  await writeFile(output, code)
   console.log(`[build-user-plugin] ${path.relative(process.cwd(), output)}`)
 } catch (err) {
   console.error('[build-user-plugin] Build failed:', err)

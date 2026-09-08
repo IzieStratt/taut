@@ -155,12 +155,6 @@ export function applyPatches(slackAsarPath: string, tautPreloadPath: string) {
     )
   }
 
-  // may have to run before resourcesPath is spoofed?
-  if (process.platform === 'darwin') {
-    app.setAsDefaultProtocolClient('slack')
-    console.log('[Taut] Registered as slack:// handler')
-  }
-
   const pendingUrls: string[] = []
   let replaying = false
   const origOn = app.on.bind(app)

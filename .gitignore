@@ -7,3 +7,4 @@ dist/
 desktop/build/
 .wakatime-project
 .wrangler
+bun.lock

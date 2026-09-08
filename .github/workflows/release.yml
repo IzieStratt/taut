@@ -9,8 +9,21 @@ permissions:
   contents: write
 
 jobs:
+  check:
+    name: Lint & typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+
   release:
     name: Build & release
+    needs: check
     runs-on: ubuntu-latest
     outputs:
       desktop: ${{ steps.check.outputs.desktop }}
@@ -19,6 +32,7 @@ jobs:
         with:
           fetch-depth: 0
 
+      # desktop installers only rebuild when their version is bumped
       - id: check
         run: |
           BEFORE="${{ github.event.before }}"
@@ -30,17 +44,14 @@ jobs:
             echo "desktop=false" >> $GITHUB_OUTPUT
           fi
 
-      - uses: oven-sh/setup-bun@v2
-      - run: bun install
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
 
-      - name: Build taut.js
-        run: bun scripts/buildTaut.ts
-
-      - name: Build extensions
-        run: bun scripts/buildExtension.ts --standard-only
-
-      - name: Build userscript
-        run: bun scripts/buildUserscript.ts --standard-only
+      - name: Build bundle, extensions and userscript
+        run: npm run build
 
       - name: Publish to latest release
         env:
@@ -54,21 +65,37 @@ jobs:
           gh release upload latest --clobber \
             dist/taut.js \
             dist/taut.debug.js \
-            dist/userscript/taut.user.js \
-            dist/extension/taut-chrome.zip \
-            dist/extension/taut-firefox.xpi
+            dist/userscript/*.user.js \
+            dist/extension/*.zip \
+            dist/extension/*.xpi
 
   release-desktop:
-    name: Desktop (all platforms)
+    name: Desktop (${{ matrix.platforms }})
     needs: release
     if: needs.release.outputs.desktop == 'true'
-    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platforms: linux linux-arm win win-arm
+          - os: macos-latest
+            platforms: mac mac-x64
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6
-      - uses: oven-sh/setup-bun@v2
-      - run: bun install
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+
+      - name: Install rpmbuild
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y rpm
 
       - name: Check for signing certificate
+        if: runner.os == 'macOS'
         id: signing
         env:
           MAC_CERT_P12: ${{ secrets.MAC_CERT_P12 }}
@@ -118,7 +145,7 @@ jobs:
 
           security find-identity -v -p codesigning "$KEYCHAIN"
 
-      - name: Build desktop (all platforms)
+      - name: Build desktop
         env:
           CSC_NAME:
             ${{ steps.signing.outputs.enabled == 'true' && 'Taut Code Signing'
@@ -126,7 +153,7 @@ jobs:
           CSC_KEYCHAIN:
             ${{ steps.signing.outputs.enabled == 'true' &&
             format('{0}/taut-signing.keychain-db', runner.temp) || '' }}
-        run: bun scripts/buildDesktop.ts all
+        run: npm run build -- desktop ${{ matrix.platforms }}
 
       - name: Publish desktop to latest release
         env:

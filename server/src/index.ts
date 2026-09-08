@@ -4,19 +4,9 @@ interface Env {
 
 const GH = 'https://github.com/jeremy46231/taut/releases/download'
 
-const REDIRECTS: Record<string, string> = {
-  '/taut.js': `${GH}/latest/taut.js`,
-  '/taut.debug.js': `${GH}/latest/taut.debug.js`,
-  '/taut.user.js': `${GH}/latest/taut.user.js`,
-  '/taut-chrome.zip': `${GH}/latest/taut-chrome.zip`,
-  '/taut-firefox.xpi': `${GH}/latest/taut-firefox.xpi`,
-  '/taut-mac.dmg': `${GH}/latest/taut-mac.dmg`,
-  '/taut-mac-x64.dmg': `${GH}/latest/taut-mac-x64.dmg`,
-  '/taut-win.exe': `${GH}/latest/taut-win.exe`,
-  '/taut-win-arm.exe': `${GH}/latest/taut-win-arm.exe`,
-  '/taut-linux.AppImage': `${GH}/latest/taut-linux.AppImage`,
-  '/taut-linux-arm.AppImage': `${GH}/latest/taut-linux-arm.AppImage`,
-}
+// every release asset is named taut[.-something...].ext, see scripts/lib/artifacts.ts
+const RELEASE_ASSET =
+  /^\/taut(?:[.-][a-z0-9]+)*\.(?:js|zip|xpi|dmg|exe|AppImage|deb|rpm|pacman)$/
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -26,9 +16,8 @@ export default {
       return Response.redirect('https://github.com/jeremy46231/taut', 302)
     }
 
-    const redirect = REDIRECTS[url.pathname]
-    if (redirect) {
-      return Response.redirect(redirect, 302)
+    if (RELEASE_ASSET.test(url.pathname)) {
+      return Response.redirect(`${GH}/latest${url.pathname}`, 302)
     }
 
     return env.ASSETS.fetch(request)

@@ -6,6 +6,7 @@
     "strict": true,
 
     "noEmit": true,
+    "allowImportingTsExtensions": true,
 
     "target": "ES2022",
     "module": "ESNext",
@@ -20,7 +21,7 @@
 
     "jsx": "react",
 
-    "types": ["bun", "node", "chrome", "firefox-webext-browser"],
+    "types": ["node", "chrome", "firefox-webext-browser"],
     "skipLibCheck": true
   },
   "include": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.cjs"],

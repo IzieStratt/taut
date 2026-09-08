@@ -105,7 +105,6 @@ export default class NoTrack extends TautPlugin {
     // Patch fetch
     this.originalFetch = window.fetch
     const originalFetch = this.originalFetch
-    // @ts-expect-error our arrow function lacks non-essential static fetch properties
     window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
       if (this.isBlocked(NoTrack.urlString(input))) {
         return Promise.resolve(BLOCKED_RESPONSE.clone())

@@ -16,6 +16,7 @@ import {
   installExtension,
   REACT_DEVELOPER_TOOLS,
 } from 'electron-devtools-installer'
+import { installAppImageDesktopEntry } from './appImage.js'
 import { setupBridge } from './bridge.js'
 import { applyPatches, setOpenOptionsWindow } from './patch.js'
 import { getAppUrl, getNotifPrompted, loadPrefs, savePrefs } from './prefs.js'
@@ -85,6 +86,15 @@ function openOptionsWindow() {
 
 setOpenOptionsWindow(openOptionsWindow)
 
+// the desktop entry has to exist before xdg is asked to route slack:// to it
+void installAppImageDesktopEntry().then(() => {
+  const ok = app.setAsDefaultProtocolClient('slack')
+  console.log(
+    ok
+      ? '[Taut] Registered as slack:// handler'
+      : '[Taut] Failed to register as slack:// handler'
+  )
+})
 applyPatches(slackAsarPath, path.join(__dirname, 'preload.js'))
 
 function requestNotificationPermission() {
