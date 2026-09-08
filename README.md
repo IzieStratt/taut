@@ -20,6 +20,18 @@ Client mod for Slack :D
     [deb](https://taut.jer.app/taut-linux-arm.deb) /
     [rpm](https://taut.jer.app/taut-linux-arm.rpm) /
     [pacman](https://taut.jer.app/taut-linux-arm.pacman)
+    - Or add the repository:
+      - Debian / Ubuntu:
+        ```sh
+        curl -fsSL https://taut.jer.app/taut.gpg | sudo tee /usr/share/keyrings/taut.gpg >/dev/null
+        echo "deb [signed-by=/usr/share/keyrings/taut.gpg] https://taut.jer.app/apt stable main" | sudo tee /etc/apt/sources.list.d/taut.list
+        sudo apt update && sudo apt install taut
+        ```
+      - Fedora / RHEL:
+        ```sh
+        sudo dnf config-manager addrepo --from-repofile=https://taut.jer.app/rpm/taut.repo
+        sudo dnf install taut
+        ```
   - Runs separately from your normal Slack desktop app!
   - Cannot run at the same time as normal Slack
 - Userscript:

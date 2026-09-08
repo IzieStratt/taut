@@ -38,6 +38,12 @@ function findStorePackageFullNames(prefix: string): string[] {
 }
 
 export function findSlackAsar(): string {
+  const override = process.env.TAUT_SLACK_ASAR
+  if (override) {
+    if (existsSync(override)) return override
+    throw new Error(`TAUT_SLACK_ASAR is set but ${override} does not exist`)
+  }
+
   const candidates: string[] = []
   const home = os.homedir()
 

@@ -1,0 +1,7 @@
+[taut]
+name=Taut
+baseurl=https://taut.jer.app/rpm
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://taut.jer.app/taut.asc

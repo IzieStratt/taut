@@ -5,8 +5,12 @@ import path from 'node:path'
 export const readJson = async (file: string) =>
   JSON.parse(await readFile(file, 'utf8'))
 
-/** Whether an executable of this name is on PATH */
-export const commandExists = (name: string) =>
+/** Full path of an executable on PATH, or undefined */
+export const findCommand = (name: string) =>
   (process.env.PATH ?? '')
     .split(path.delimiter)
-    .some((dir) => dir && existsSync(path.join(dir, name)))
+    .filter(Boolean)
+    .map((dir) => path.join(dir, name))
+    .find((file) => existsSync(file))
+
+export const commandExists = (name: string) => findCommand(name) !== undefined

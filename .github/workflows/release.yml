@@ -53,15 +53,34 @@ jobs:
       - name: Build bundle, extensions and userscript
         run: npm run build
 
+      - name: Ensure rolling releases exist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ensure() {
+            gh release view "$1" >/dev/null 2>&1 || gh release create "$1" --prerelease --notes ""
+            gh release edit "$1" --prerelease --title "$2" --notes-file "$3"
+          }
+          cat > latest.md <<'EOF'
+          Rolling build of the main branch.
+
+          - `taut.js` / `taut.debug.js`: the app bundle every loader fetches (`debug` carries sourcemaps)
+          - `taut.user.js`: userscript; `taut-chrome.zip` / `taut-firefox.xpi`: browser extensions
+          - `taut-mac*.dmg`, `taut-win*.exe`, `taut-linux*.{AppImage,deb,rpm,pacman}`: desktop installers
+
+          Install instructions are in the [README](https://github.com/jeremy46231/taut#quickstart).
+          EOF
+          cat > repo.md <<'EOF'
+          apt and dnf indexes read by https://taut.jer.app/apt and https://taut.jer.app/rpm, see the
+          [README](https://github.com/jeremy46231/taut#quickstart) for more.
+          EOF
+          ensure latest "Latest build" latest.md
+          ensure repo "Package repository metadata" repo.md
+
       - name: Publish to latest release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release view latest 2>/dev/null || \
-            gh release create latest \
-              --title "Latest" \
-              --prerelease \
-              --notes "Rolling release"
           gh release upload latest --clobber \
             dist/taut.js \
             dist/taut.debug.js \
@@ -155,7 +174,26 @@ jobs:
             format('{0}/taut-signing.keychain-db', runner.temp) || '' }}
         run: npm run build -- desktop ${{ matrix.platforms }}
 
+      - name: Build apt and dnf repositories
+        if: runner.os == 'Linux'
+        env:
+          REPO_GPG_KEY: ${{ secrets.REPO_GPG_KEY }}
+        run: |
+          if [ -z "$REPO_GPG_KEY" ]; then
+            echo "::warning::REPO_GPG_KEY not set; skipping apt/dnf repository metadata."
+            exit 0
+          fi
+          sudo apt-get install -y createrepo-c
+          echo "$REPO_GPG_KEY" | gpg --batch --import
+          npm run repo
+
       - name: Publish desktop to latest release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload latest --clobber dist/desktop/*
+
+      - name: Publish repository metadata
+        if: runner.os == 'Linux' && hashFiles('dist/repo/*') != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload repo --clobber dist/repo/*

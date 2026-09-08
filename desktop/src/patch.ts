@@ -4,6 +4,7 @@
 // Also spoofs the process/app env properties Slack uses to locate its assets.
 
 import { createHash } from 'node:crypto'
+import { EventEmitter } from 'node:events'
 import {
   copyFileSync,
   existsSync,
@@ -31,6 +32,33 @@ const origModuleLoad = NodeModule._load
 NodeModule._load = function (request: string, ...args: any[]) {
   if (request === 'electron') return electronProxy
   return origModuleLoad.call(this, request, ...args)
+}
+
+// disable the auto updater
+class NoopAutoUpdater extends EventEmitter {
+  setFeedURL() {}
+  getFeedURL() {
+    return ''
+  }
+  checkForUpdates() {
+    this.emit('checking-for-update')
+    process.nextTick(() => this.emit('update-not-available'))
+  }
+  quitAndInstall() {
+    app.quit()
+  }
+}
+overrides.autoUpdater = new NoopAutoUpdater()
+// disable the crash reporter
+overrides.crashReporter = {
+  start() {},
+  getLastCrashReport: () => null,
+  getUploadedReports: () => [],
+  getUploadToServer: () => false,
+  setUploadToServer() {},
+  addExtraParameter() {},
+  removeExtraParameter() {},
+  getParameters: () => ({}),
 }
 
 // msstore or misx slack stores native (.node) addons in WindowsApps
