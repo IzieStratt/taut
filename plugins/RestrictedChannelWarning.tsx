@@ -35,7 +35,7 @@ export default class RestrictedChannelWarning extends TautPlugin {
   static readonly defaultConfig = `
     // Warns admins before posting in announcement-style channels
     "RestrictedChannelWarning": {
-      "enabled": false
+      "enabled": true
     }
   `
 
