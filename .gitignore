@@ -8,3 +8,4 @@ desktop/build/
 .wakatime-project
 .wrangler
 bun.lock
+desktop/native/

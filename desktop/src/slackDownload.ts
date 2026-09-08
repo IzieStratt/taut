@@ -1,13 +1,16 @@
 // Taut Desktop Slack downloader
 
-import { createWriteStream, existsSync } from 'node:fs'
-import { mkdir, readdir, rename, rm } from 'node:fs/promises'
+import { createWriteStream, existsSync, readFileSync } from 'node:fs'
+import { access, mkdir, readdir, rename, rm } from 'node:fs/promises'
 import path from 'node:path'
 import { Readable, Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import type { ReadableStream } from 'node:stream/web'
 import { fileURLToPath } from 'node:url'
+import { createGunzip } from 'node:zlib'
 import { app, BrowserWindow, dialog, net } from 'electron'
+import tar from 'tar-stream'
+import { downloadedNativesDir } from './nativeModules.js'
 import { extractDebDir, extractZipDir } from './slackArchive.js'
 
 declare const __TAUT_SLACK_VERSION__: string
@@ -98,6 +101,9 @@ export async function downloadSlack(
   if (!existsSync(path.join(work, 'app.asar'))) {
     throw new Error(`${url} did not contain ${resources}/app.asar`)
   }
+  await downloadSlackNatives(work).catch((err) =>
+    console.warn('[Taut] arm64 slack-desktop-utils download failed:', err)
+  )
   await rename(work, resourcesDir())
   await rm(work, { recursive: true, force: true })
   await rm(archive, { force: true })
@@ -107,6 +113,75 @@ export async function downloadSlack(
     }
   }
   console.log(`[Taut] Slack ${SLACK_VERSION} ready`)
+}
+
+// slack publishes N-API prebuilds of its proprietary module for linux arm64
+// too, at the node-pre-gyp location described in its package.json
+function slackDesktopUtilsPrebuildUrl(slackResourcesPath: string): string {
+  const pkg = JSON.parse(
+    readFileSync(
+      path.join(
+        slackResourcesPath,
+        'app.asar',
+        'node_modules',
+        '@tinyspeck',
+        'slack-desktop-utils',
+        'package.json'
+      ),
+      'utf8'
+    )
+  )
+  const { binary, version } = pkg
+  const fields: Record<string, string> = {
+    module_name: binary.module_name,
+    version,
+    napi_build_version: String(Math.max(...binary.napi_versions)),
+    platform: 'linux',
+    arch: 'arm64',
+  }
+  const name = (binary.package_name as string).replace(
+    /\{(\w+)\}/g,
+    (_, key) => fields[key]
+  )
+  return `${binary.production_host}/${name}`
+}
+
+/**
+ * On arm64 linux, fetch the arm64 slack-desktop-utils next to the given Slack
+ */
+export async function downloadSlackNatives(slackResourcesPath: string) {
+  if (process.platform !== 'linux' || process.arch !== 'arm64') return
+  const dir = downloadedNativesDir(slackResourcesPath)
+  try {
+    await access(path.join(dir, 'slackdesktoputils.node'))
+    return
+  } catch {}
+  const url = slackDesktopUtilsPrebuildUrl(slackResourcesPath)
+  console.log(`[Taut] Downloading arm64 slack-desktop-utils from ${url}`)
+  const res = await net.fetch(url)
+  if (!res.ok || !res.body) throw new Error(`${url}: HTTP ${res.status}`)
+  await mkdir(dir, { recursive: true })
+  const extract = tar.extract()
+  extract.on('entry', (header, stream, next) => {
+    if (header.type !== 'file' || !header.name.endsWith('.node')) {
+      stream.resume()
+      stream.on('end', next)
+      return
+    }
+    pipeline(
+      stream,
+      createWriteStream(path.join(dir, path.basename(header.name)))
+    ).then(
+      () => next(),
+      (err) => extract.destroy(err)
+    )
+  })
+  await pipeline(
+    Readable.fromWeb(res.body as ReadableStream),
+    createGunzip(),
+    extract
+  )
+  console.log(`[Taut] arm64 slack-desktop-utils ready in ${dir}`)
 }
 
 const mb = (bytes: number) => (bytes / 1e6).toFixed(0)

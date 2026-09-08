@@ -113,8 +113,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - os: ubuntu-24.04-arm
+            platforms: linux linux-arm
           - os: ubuntu-latest
-            platforms: linux win win-arm
+            platforms: win win-arm
           - os: macos-latest
             platforms: mac mac-x64
     runs-on: ${{ matrix.os }}
@@ -126,9 +128,16 @@ jobs:
           cache: npm
       - run: npm ci
 
-      - name: Install rpmbuild
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y rpm
+      - name: Install packaging and native module build deps
+        if: contains(matrix.platforms, 'linux')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm libarchive-tools libx11-dev libxkbfile-dev
+
+      # arm64 replacements for slack's native modules, see scripts/lib/natives.ts
+      - name: Build native modules
+        if: contains(matrix.platforms, 'linux-arm')
+        run: npm run build:natives
 
       - name: Check for signing certificate
         if: runner.os == 'macOS'
@@ -191,7 +200,7 @@ jobs:
         run: npm run build -- desktop ${{ matrix.platforms }}
 
       - name: Build apt and dnf repositories
-        if: runner.os == 'Linux'
+        if: contains(matrix.platforms, 'linux')
         env:
           REPO_GPG_KEY: ${{ secrets.REPO_GPG_KEY }}
         run: |
@@ -215,6 +224,7 @@ jobs:
           TAG: ${{ needs.release.outputs.desktop-tag }}
         run: |
           existing="$(gh release view "$TAG" --json assets -q '.assets[].name')"
+          uploaded=""
           for file in dist/desktop/*; do
             name="$(basename "$file")"
             if grep -qxF "$name" <<<"$existing"; then
@@ -222,23 +232,27 @@ jobs:
               continue
             fi
             gh release upload "$TAG" "$file"
-            if [ "$name" = taut-linux.AppImage ]; then
-              echo "appimage=uploaded" >> "$GITHUB_OUTPUT"
-            fi
+            uploaded="$uploaded $name"
           done
+          echo "uploaded=$uploaded" >> "$GITHUB_OUTPUT"
 
-      - name: Pin the AppImage in flake.nix
-        if: steps.versioned.outputs.appimage == 'uploaded'
+      - name: Pin the AppImages in flake.nix
+        if: contains(steps.versioned.outputs.uploaded, '.AppImage')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.release.outputs.desktop-tag }}
+          UPLOADED: ${{ steps.versioned.outputs.uploaded }}
         run: |
-          hash="sha256-$(openssl dgst -sha256 -binary dist/desktop/taut-linux.AppImage | base64)"
-          sed -i -E \
-            -e "s|^(      version = )\"[^\"]*\";$|\1\"${TAG#desktop-v}\";|" \
-            -e "s|^(      hash = )\"[^\"]*\";$|\1\"$hash\";|" \
-            flake.nix
-          grep -qF "version = \"${TAG#desktop-v}\";" flake.nix && grep -qF "hash = \"$hash\";" flake.nix
+          pin() {
+            grep -qF " $2 " <<<" $UPLOADED " || return 0
+            hash="sha256-$(openssl dgst -sha256 -binary "dist/desktop/$2" | base64)"
+            sed -i -E "s|^(        $1 = )\"(sha256-[^\"]*)?\";$|\1\"$hash\";|" flake.nix
+            grep -qF "$1 = \"$hash\";" flake.nix
+          }
+          sed -i -E "s|^(      version = )\"[^\"]*\";$|\1\"${TAG#desktop-v}\";|" flake.nix
+          grep -qF "version = \"${TAG#desktop-v}\";" flake.nix
+          pin x86_64-linux taut-linux.AppImage
+          pin aarch64-linux taut-linux-arm.AppImage
           gh api -X PUT "repos/$GITHUB_REPOSITORY/contents/flake.nix" \
             -f branch=main \
             -f message="nix: pin desktop ${TAG#desktop-}" \
@@ -246,7 +260,7 @@ jobs:
             -f content="$(base64 -w0 flake.nix)"
 
       - name: Publish repository metadata
-        if: runner.os == 'Linux' && hashFiles('dist/repo/*') != ''
+        if: hashFiles('dist/repo/*') != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload repo --clobber dist/repo/*

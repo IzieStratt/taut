@@ -8,23 +8,37 @@
     let
       # these lines are rewritten by the release workflow after each desktop release
       version = "3.0.0";
-      hash = "";
+      hashes = {
+        x86_64-linux = "";
+        aarch64-linux = "";
+      };
+
+      appImages = {
+        x86_64-linux = "taut-linux.AppImage";
+        aarch64-linux = "taut-linux-arm.AppImage";
+      };
 
       package =
         {
           lib,
+          stdenv,
           appimageTools,
           fetchurl,
         }:
 
+        let
+          system = stdenv.hostPlatform.system;
+          hash = hashes.${system};
+        in
+
         assert lib.assertMsg (
           hash != ""
-        ) "flake.nix has no hash yet";
+        ) "flake.nix has no ${system} hash yet";
 
         let
           pname = "taut";
           src = fetchurl {
-            url = "https://github.com/jeremy46231/taut/releases/download/desktop-v${version}/taut-linux.AppImage";
+            url = "https://github.com/jeremy46231/taut/releases/download/desktop-v${version}/${appImages.${system}}";
             inherit hash;
           };
           contents = appimageTools.extract { inherit pname version src; };
@@ -43,18 +57,19 @@
             description = "Client mod for Slack";
             homepage = "https://taut.jer.app";
             license = lib.licenses.mit;
-            platforms = [ "x86_64-linux" ];
+            platforms = builtins.attrNames appImages;
             mainProgram = "taut";
             sourceProvenance = [ lib.sourceTypes.binaryNativeCode ];
           };
         };
-    in
-    {
-      # Slack only ships Linux builds for x86_64
-      packages.x86_64-linux = rec {
-        taut = nixpkgs.legacyPackages.x86_64-linux.callPackage package { };
+
+      forSystem = system: rec {
+        taut = nixpkgs.legacyPackages.${system}.callPackage package { };
         default = taut;
       };
+    in
+    {
+      packages = nixpkgs.lib.genAttrs (builtins.attrNames appImages) forSystem;
 
       overlays.default = final: prev: { taut = final.callPackage package { }; };
     };

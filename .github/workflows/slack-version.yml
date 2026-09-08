@@ -38,7 +38,19 @@ jobs:
           npx --yes @electron/asar extract-file app.asar package.json
           echo "slack=$(jq -r .devDependencies.electron package.json)" >> "$GITHUB_OUTPUT"
           echo "taut=$(jq -r .devDependencies.electron "$GITHUB_WORKSPACE/package.json")" >> "$GITHUB_OUTPUT"
-          rm slack.deb app.asar package.json
+          rm package.json
+          # the arm64 linux build rebuilds these from public packages, flag drift
+          NOTE=""
+          for spec in $(node -e '
+            import("./scripts/lib/natives.ts").then(({ SLACK_NATIVE_MODULES }) => {
+              for (const m of SLACK_NATIVE_MODULES) console.log(`${m.slackPackage ?? m.package}=${m.version}`)
+            })'); do
+            npx @electron/asar extract-file app.asar "node_modules/${spec%%=*}/package.json"
+            THEIRS=$(jq -r .version package.json); rm package.json
+            [ "$THEIRS" = "${spec#*=}" ] || NOTE="$NOTE ${spec%%=*} is $THEIRS in Slack, scripts/lib/natives.ts pins ${spec#*=}."
+          done
+          echo "natives=$NOTE" >> "$GITHUB_OUTPUT"
+          rm slack.deb app.asar
 
       - if: steps.versions.outputs.latest != steps.versions.outputs.current
         env:
@@ -47,6 +59,7 @@ jobs:
           CURRENT: ${{ steps.versions.outputs.current }}
           SLACK_ELECTRON: ${{ steps.electron.outputs.slack }}
           TAUT_ELECTRON: ${{ steps.electron.outputs.taut }}
+          NATIVES_NOTE: ${{ steps.electron.outputs.natives }}
         run: |
           BRANCH="slack-$LATEST"
           if gh pr list --head "$BRANCH" --state open --json number --jq length | grep -qv '^0$'; then
@@ -70,4 +83,4 @@ jobs:
           fi
           git commit -am "update to slack $LATEST"
           git push -u origin "$BRANCH"
-          gh pr create --title "Slack $LATEST" --body "Slack released $LATEST (Taut uses $CURRENT).$ELECTRON_NOTE"
+          gh pr create --title "Slack $LATEST" --body "Slack released $LATEST (Taut uses $CURRENT).$ELECTRON_NOTE$NATIVES_NOTE"

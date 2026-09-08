@@ -16,9 +16,9 @@ const REPO_ROUTES: Array<
     'repo',
     (m) => `apt-${m[1] ? `${m[1]}-` : ''}${m[2]}`,
   ],
-  [/^\/apt\/pool\/(taut-linux\.deb)$/, 'latest', (m) => m[1]],
+  [/^\/apt\/pool\/(taut-linux(?:-arm)?\.deb)$/, 'latest', (m) => m[1]],
   [/^\/rpm\/repodata\/([\w.-]+)$/, 'repo', (m) => `rpm-repodata-${m[1]}`],
-  [/^\/rpm\/(taut-linux\.rpm)$/, 'latest', (m) => m[1]],
+  [/^\/rpm\/(taut-linux(?:-arm)?\.rpm)$/, 'latest', (m) => m[1]],
 ]
 
 export default {

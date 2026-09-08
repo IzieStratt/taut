@@ -1,13 +1,21 @@
 // Taut Desktop archive extraction
 
-import { createReadStream, createWriteStream } from 'node:fs'
-import { mkdir, open, writeFile } from 'node:fs/promises'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { Unzip, UnzipInflate } from 'fflate'
 import tar from 'tar-stream'
 import xz from 'xz-decompress'
+
+// electron's fs treats every path ending in .asar as an archive to read from,
+// which breaks writing slack's app.asar. original-fs is the unpatched module
+const cjsRequire = createRequire(import.meta.url)
+const fs: typeof import('node:fs') = cjsRequire(
+  process.versions.electron ? 'original-fs' : 'node:fs'
+)
+const { createReadStream, createWriteStream } = fs
+const { mkdir, open, writeFile } = fs.promises
 
 const withSlash = (dir: string) => dir.replace(/^\.\//, '').replace(/\/?$/, '/')
 

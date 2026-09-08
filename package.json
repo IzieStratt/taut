@@ -22,6 +22,7 @@
   "scripts": {
     "build": "node scripts/build.ts",
     "build:icons": "node scripts/icons.ts",
+    "build:natives": "node scripts/natives.ts",
     "build:user-plugin": "node scripts/userPlugin.ts",
     "dev": "node scripts/dev.ts",
     "repo": "node scripts/repo.ts",

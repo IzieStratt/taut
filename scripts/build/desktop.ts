@@ -1,7 +1,7 @@
 // Builds and packages the Taut desktop app with electron-builder
 
 import { execFileSync } from 'node:child_process'
-import { cp, mkdir, rename, rm, writeFile } from 'node:fs/promises'
+import { access, cp, mkdir, rename, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import {
   Arch,
@@ -19,6 +19,7 @@ import {
   variantSuffix,
 } from '../lib/artifacts.ts'
 import { commandExists } from '../lib/fs.ts'
+import { nativesDir, SLACK_NATIVE_MODULES } from '../lib/natives.ts'
 import { renderOptions } from '../lib/options.ts'
 import { ASSETS, DESKTOP, DIST, TAUT_DEBUG_JS } from '../lib/paths.ts'
 import { versions } from '../lib/versions.ts'
@@ -102,6 +103,24 @@ async function buildJs(variant: Variant) {
   await cp(path.join(SRC, 'download.html'), path.join(STAGE, 'download.html'))
 }
 
+// arm64 linux runs slack's x64 javascript with rebuilt native modules
+const needsNatives = (key: PlatformKey) =>
+  DESKTOP_PLATFORMS[key].os === 'linux' &&
+  DESKTOP_PLATFORMS[key].arch === 'arm64'
+
+async function assertNatives(key: PlatformKey) {
+  const dir = nativesDir(key)
+  for (const m of SLACK_NATIVE_MODULES) {
+    try {
+      await access(path.join(dir, m.file))
+    } catch {
+      throw new Error(
+        `${key} needs ${path.relative(DESKTOP, dir)}/${m.file}, build it with \`npm run build:natives\` on arm64 linux (CI does this)`
+      )
+    }
+  }
+}
+
 // electron-builder config per (variant, platform)
 
 function makeConfig(
@@ -135,7 +154,12 @@ function makeConfig(
           }
         : {}),
     },
-    extraResources: isEmbedded ? [{ from: TAUT_DEBUG_JS, to: 'taut.js' }] : [],
+    extraResources: [
+      ...(isEmbedded ? [{ from: TAUT_DEBUG_JS, to: 'taut.js' }] : []),
+      ...(needsNatives(key)
+        ? [{ from: path.relative(DESKTOP, nativesDir(key)), to: 'native' }]
+        : []),
+    ],
     protocols: [{ name: 'Slack URL', schemes: ['slack'], role: 'Viewer' }],
     artifactName: `${desktopArtifactStem(key, variant)}.\${ext}`,
     mac: {
@@ -171,6 +195,7 @@ async function packageVariant(variant: Variant, platforms: PlatformKey[]) {
 
   for (const key of platforms) {
     const def = DESKTOP_PLATFORMS[key]
+    if (needsNatives(key)) await assertNatives(key)
     if (def.os === 'mac') {
       const how =
         macIdentity === undefined

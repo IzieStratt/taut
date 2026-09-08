@@ -16,7 +16,10 @@ Client mod for Slack :D
     [deb](https://taut.jer.app/taut-linux.deb) /
     [rpm](https://taut.jer.app/taut-linux.rpm) /
     [pacman](https://taut.jer.app/taut-linux.pacman)
-    (x64, Slack doesn't support Linux ARM)
+    - ARM: [AppImage](https://taut.jer.app/taut-linux-arm.AppImage) /
+      [deb](https://taut.jer.app/taut-linux-arm.deb) /
+      [rpm](https://taut.jer.app/taut-linux-arm.rpm) /
+      [pacman](https://taut.jer.app/taut-linux-arm.pacman)
     - Or add the repository:
       - Debian / Ubuntu:
         ```sh

@@ -3,19 +3,12 @@
 // subsequent require('electron') from Slack's code gets our patched versions.
 // Also spoofs the process/app env properties Slack uses to locate its assets.
 
-import { createHash } from 'node:crypto'
 import { EventEmitter } from 'node:events'
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  statSync,
-} from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { app, ipcMain, Menu, shell } from 'electron'
+import { redirectNativeModules } from './nativeModules.js'
 
 const cjsRequire = createRequire(import.meta.url)
 const NodeModule = cjsRequire('module') as any
@@ -61,40 +54,6 @@ overrides.crashReporter = {
   getParameters: () => ({}),
 }
 
-// msstore or misx slack stores native (.node) addons in WindowsApps
-// only Slack.exe can execute them, but anyone can read them
-// copy them to somewhere we can load them from, and load from there instead
-if (process.platform === 'win32') {
-  const programFiles = process.env.ProgramFiles ?? process.env.ProgramW6432
-  const windowsApps = programFiles
-    ? path.join(programFiles, 'WindowsApps').toLowerCase()
-    : null
-  const origNodeExtension = NodeModule._extensions['.node']
-  NodeModule._extensions['.node'] = function (module: any, filename: string) {
-    if (!windowsApps || !filename.toLowerCase().startsWith(windowsApps)) {
-      return origNodeExtension.call(this, module, filename)
-    }
-    const cacheDir = path.join(
-      app.getPath('appData'),
-      'Taut',
-      'native-cache',
-      createHash('sha1').update(filename).digest('hex').slice(0, 16)
-    )
-    const cachedFile = path.join(cacheDir, path.basename(filename))
-    if (!existsSync(cachedFile)) {
-      mkdirSync(cacheDir, { recursive: true })
-      const srcDir = path.dirname(filename)
-      for (const name of readdirSync(srcDir)) {
-        const srcFile = path.join(srcDir, name)
-        if (!statSync(srcFile).isFile()) continue
-        copyFileSync(srcFile, path.join(cacheDir, name))
-      }
-      console.log(`[Taut] Staged WindowsApps native module: ${filename}`)
-    }
-    return origNodeExtension.call(this, module, cachedFile)
-  }
-}
-
 // Taut menu
 
 let openOptionsWindowFn: (() => void) | null = null
@@ -138,6 +97,7 @@ function injectTautMenu(
 
 export function applyPatches(slackAsarPath: string, tautPreloadPath: string) {
   const slackResourcesPath = path.dirname(slackAsarPath)
+  redirectNativeModules(slackResourcesPath)
 
   let originalPreloadContents: string | null = null
   ipcMain.handle('taut:get-original-preload', () => originalPreloadContents)

@@ -3,7 +3,13 @@ export const VARIANTS: Variant[] = ['standard', 'embedded']
 
 export type Os = 'mac' | 'win' | 'linux'
 export type Arch = 'x64' | 'arm64'
-export type PlatformKey = 'mac' | 'mac-x64' | 'win' | 'win-arm' | 'linux'
+export type PlatformKey =
+  | 'mac'
+  | 'mac-x64'
+  | 'win'
+  | 'win-arm'
+  | 'linux'
+  | 'linux-arm'
 
 export interface DesktopPlatform {
   os: Os
@@ -19,8 +25,8 @@ export const DESKTOP_PLATFORMS: Record<PlatformKey, DesktopPlatform> = {
   'mac-x64': { os: 'mac', arch: 'x64', targets: ['dmg'] },
   win: { os: 'win', arch: 'x64', targets: ['nsis'] },
   'win-arm': { os: 'win', arch: 'arm64', targets: ['nsis'] },
-  // slack doesn't have a arm64 linux build
   linux: { os: 'linux', arch: 'x64', targets: LINUX_TARGETS },
+  'linux-arm': { os: 'linux', arch: 'arm64', targets: LINUX_TARGETS },
 }
 
 export const PLATFORM_KEYS = Object.keys(DESKTOP_PLATFORMS) as PlatformKey[]
@@ -50,6 +56,6 @@ export function hostPlatformKey(): PlatformKey {
     case 'win32':
       return arm ? 'win-arm' : 'win'
     default:
-      return 'linux'
+      return arm ? 'linux-arm' : 'linux'
   }
 }

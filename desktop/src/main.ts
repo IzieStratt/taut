@@ -24,6 +24,7 @@ import { setupSession } from './session.js'
 import {
   cachedSlackAsar,
   downloadSlack,
+  downloadSlackNatives,
   downloadSlackWithWindow,
 } from './slackDownload.js'
 import { findInstalledSlackAsar } from './slackFinder.js'
@@ -118,6 +119,14 @@ function startSlack(slackAsarPath: string) {
     )
   })
   applyPatches(slackAsarPath, path.join(__dirname, 'preload.js'))
+
+  app
+    .whenReady()
+    .then(() =>
+      downloadSlackNatives(path.dirname(slackAsarPath)).catch((err) =>
+        console.warn('[Taut] arm64 slack-desktop-utils download failed:', err)
+      )
+    )
 
   function requestNotificationPermission() {
     try {
