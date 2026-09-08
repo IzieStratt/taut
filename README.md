@@ -44,7 +44,6 @@ Client mod for Slack :D
   - Install the [userscript](https://taut.jer.app/taut.user.js)
 - Browser extension:
   - Chrome / Chromium-based
-    - Hopefully available in the Chrome Web Store soon
     - Extract the [extension](https://taut.jer.app/taut-chrome.zip) to a
       permanent location
     - Go to `about:extensions`, enable `Developer mode`, `Load unpacked` the
@@ -119,11 +118,11 @@ PRs are very welcome! You should join the
 
 Other Slack tools from the Hack Club community that may interest you:
 
+- [Slick](https://github.com/3kh0/slick) by [Rowan](https://3kh0.net) - Client
+  mod, desktop app, DOM modifications
 - [Rope](https://github.com/anirudhb/rope) by [Ani](https://github.com/anirudhb)
   ([#rope](https://hackclub.enterprise.slack.com/archives/C0A3GT3RWJG)) - Client
   mod, userscript, similar Webpack patching
-- [Slick](https://github.com/3kh0/slick) by [Rowan](https://3kh0.net) - Client
-  mod, desktop app, DOM modifications
 - [Snail](https://github.com/espcaa/snail) by [Alice](https://espcaa.eu)
   ([#snail](https://hackclub.enterprise.slack.com/archives/C0A0HBS87PX)) -
   Client mod, patches MacOS app, React monkeypatching
@@ -141,10 +140,3 @@ Other Slack tools from the Hack Club community that may interest you:
 ## License
 
 MIT License
-
----
-
-<sub>AI use disclaimer: I've used plenty of AI in the creation of this project,
-but all the code is closely reviewed and high-quality. If not for this
-disclaimer, you probably wouldn't be able to tell lol, this is probably the
-project I am most proud of ever making.</sub>
