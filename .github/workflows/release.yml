@@ -27,6 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       desktop: ${{ steps.check.outputs.desktop }}
+      desktop-tag: ${{ steps.desktop-tag.outputs.tag }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -53,29 +54,32 @@ jobs:
       - name: Build bundle, extensions and userscript
         run: npm run build
 
-      - name: Ensure rolling releases exist
+      - name: Update rolling releases
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          git tag -f latest && git tag -f repo
+          git push -f origin refs/tags/latest refs/tags/repo
           ensure() {
-            gh release view "$1" >/dev/null 2>&1 || gh release create "$1" --prerelease --notes ""
-            gh release edit "$1" --prerelease --title "$2" --notes-file "$3"
+            gh release view "$1" >/dev/null 2>&1 || gh release create "$1" --notes "" "${@:4}"
+            gh release edit "$1" --title "$2" --notes-file "$3" "${@:4}"
           }
-          cat > latest.md <<'EOF'
+          cat > latest.md <<'MD'
           Rolling build of the main branch.
 
           - `taut.js` / `taut.debug.js`: the app bundle every loader fetches (`debug` carries sourcemaps)
           - `taut.user.js`: userscript; `taut-chrome.zip` / `taut-firefox.xpi`: browser extensions
-          - `taut-mac*.dmg`, `taut-win*.exe`, `taut-linux*.{AppImage,deb,rpm,pacman}`: desktop installers
+          - `taut-mac*.dmg`, `taut-win*.exe`, `taut-linux*.{AppImage,deb,rpm,pacman}`: desktop installers,
+            with version history in the `desktop-v*` releases
 
           Install instructions are in the [README](https://github.com/jeremy46231/taut#quickstart).
-          EOF
-          cat > repo.md <<'EOF'
+          MD
+          cat > repo.md <<'MD'
           apt and dnf indexes read by https://taut.jer.app/apt and https://taut.jer.app/rpm, see the
           [README](https://github.com/jeremy46231/taut#quickstart) for more.
-          EOF
-          ensure latest "Latest build" latest.md
-          ensure repo "Package repository metadata" repo.md
+          MD
+          ensure latest "Latest build" latest.md --latest --prerelease=false
+          ensure repo "Package repository metadata" repo.md --prerelease
 
       - name: Publish to latest release
         env:
@@ -87,6 +91,19 @@ jobs:
             dist/userscript/*.user.js \
             dist/extension/*.zip \
             dist/extension/*.xpi
+
+      - name: Create desktop release
+        if: steps.check.outputs.desktop == 'true'
+        id: desktop-tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="desktop-v$(jq -r .version desktop/package.json)"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          gh release view "$TAG" >/dev/null 2>&1 && exit 0
+          gh release create "$TAG" --target "$GITHUB_SHA" --latest=false \
+            --title "Desktop ${TAG#desktop-}" \
+            --notes "Taut desktop ${TAG#desktop-}. The \`latest\` release always has the newest installers, see the [README](https://github.com/jeremy46231/taut#quickstart) to install."
 
   release-desktop:
     name: Desktop (${{ matrix.platforms }})
@@ -169,8 +186,7 @@ jobs:
           CSC_NAME:
             ${{ steps.signing.outputs.enabled == 'true' && 'Taut Code Signing'
             || '' }}
-          CSC_KEYCHAIN:
-            ${{ steps.signing.outputs.enabled == 'true' &&
+          CSC_KEYCHAIN: ${{ steps.signing.outputs.enabled == 'true' &&
             format('{0}/taut-signing.keychain-db', runner.temp) || '' }}
         run: npm run build -- desktop ${{ matrix.platforms }}
 
@@ -191,6 +207,43 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload latest --clobber dist/desktop/*
+
+      - name: Publish desktop to ${{ needs.release.outputs.desktop-tag }}
+        id: versioned
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release.outputs.desktop-tag }}
+        run: |
+          existing="$(gh release view "$TAG" --json assets -q '.assets[].name')"
+          for file in dist/desktop/*; do
+            name="$(basename "$file")"
+            if grep -qxF "$name" <<<"$existing"; then
+              echo "$name is already published, keeping it"
+              continue
+            fi
+            gh release upload "$TAG" "$file"
+            if [ "$name" = taut-linux.AppImage ]; then
+              echo "appimage=uploaded" >> "$GITHUB_OUTPUT"
+            fi
+          done
+
+      - name: Pin the AppImage in flake.nix
+        if: steps.versioned.outputs.appimage == 'uploaded'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release.outputs.desktop-tag }}
+        run: |
+          hash="sha256-$(openssl dgst -sha256 -binary dist/desktop/taut-linux.AppImage | base64)"
+          sed -i -E \
+            -e "s|^(      version = )\"[^\"]*\";$|\1\"${TAG#desktop-v}\";|" \
+            -e "s|^(      hash = )\"[^\"]*\";$|\1\"$hash\";|" \
+            flake.nix
+          grep -qF "version = \"${TAG#desktop-v}\";" flake.nix && grep -qF "hash = \"$hash\";" flake.nix
+          gh api -X PUT "repos/$GITHUB_REPOSITORY/contents/flake.nix" \
+            -f branch=main \
+            -f message="nix: pin desktop ${TAG#desktop-}" \
+            -f sha="$(gh api "repos/$GITHUB_REPOSITORY/contents/flake.nix?ref=main" -q .sha)" \
+            -f content="$(base64 -w0 flake.nix)"
 
       - name: Publish repository metadata
         if: runner.os == 'Linux' && hashFiles('dist/repo/*') != ''

@@ -29,6 +29,8 @@ Client mod for Slack :D
         sudo dnf config-manager addrepo --from-repofile=https://taut.jer.app/rpm/taut.repo
         sudo dnf install taut
         ```
+      - Nix: `nix run github:jeremy46231/taut`, or add the flake as an input
+        and use its `taut` package (also in `overlays.default`)
   - Runs separately from your normal Slack desktop app!
 - Userscript:
   - Requires [Tampermonkey](https://tampermonkey.net/#download), no Safari
