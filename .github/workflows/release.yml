@@ -288,6 +288,28 @@ jobs:
             -f sha="$(gh api "repos/$GITHUB_REPOSITORY/contents/flake.nix?ref=main" -q .sha)" \
             -f content="$(base64 -w0 flake.nix)"
 
+      - name: Publish the Homebrew cask
+        if: contains(matrix.platforms, 'mac')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          TAP: ${{ github.repository_owner }}/homebrew-taut
+          TAG: ${{ needs.release.outputs.desktop-tag }}
+        run: |
+          if [ -z "$TAP_TOKEN" ]; then
+            echo "::warning::HOMEBREW_TAP_TOKEN not set; skipping the Homebrew cask."
+            exit 0
+          fi
+          gh release download "$TAG" --pattern 'taut-mac*.dmg' --dir published
+          node scripts/cask.ts published/taut-mac.dmg published/taut-mac-x64.dmg > taut.rb
+          cat taut.rb
+          export GH_TOKEN="$TAP_TOKEN"
+          sha="$(gh api "repos/$TAP/contents/Casks/taut.rb" 2>/dev/null | jq -r '.sha // empty')"
+          gh api -X PUT "repos/$TAP/contents/Casks/taut.rb" \
+            -f message="taut ${TAG#desktop-v}" \
+            -f content="$(base64 -w0 taut.rb)" \
+            ${sha:+-f sha="$sha"}
+
       - name: Publish repository metadata
         if: hashFiles('dist/repo/*') != ''
         env:

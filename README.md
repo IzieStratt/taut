@@ -11,6 +11,7 @@ Client mod for Slack :D
     [Intel](https://taut.jer.app/taut-mac-x64.dmg)
     - Run before launching:
       `xattr -d com.apple.quarantine /Applications/Taut.app`
+    - Or with Homebrew: `brew install --cask jeremy46231/taut/taut`
   - Linux:
     [AppImage](https://taut.jer.app/taut-linux.AppImage) /
     [deb](https://taut.jer.app/taut-linux.deb) /
