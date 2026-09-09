@@ -16,8 +16,7 @@ Client mod for Slack :D
     - Run in your terminal: (supports Intel and Apple Silicon)
       ```sh
       brew tap IzieStratt/taut
-      brew install --cask taut
-      xattr -d com.apple.quarantine /Applications/Taut.app
+      brew install --cask --no-quarantine taut
       ```
   - Linux: [x64](https://taut.jer.app/taut-linux.AppImage) /
     [ARM](https://taut.jer.app/taut-linux-arm.AppImage)
