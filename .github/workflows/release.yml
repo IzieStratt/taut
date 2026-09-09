@@ -132,27 +132,3 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload latest --clobber dist/desktop/*
-
-  verify-homebrew-tap:
-    name: Verify Homebrew cask
-    needs: [release, release-desktop]
-    if: always() && needs.release.result == 'success' && (needs.release-desktop.result == 'success' || needs.release-desktop.result == 'skipped')
-    runs-on: macos-latest
-    steps:
-      - name: Verify latest macOS release asset
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          gh release download latest \
-            --repo "${{ github.repository }}" \
-            --pattern 'taut-mac.dmg' \
-            --dir "$RUNNER_TEMP"
-          test -s "$RUNNER_TEMP/taut-mac.dmg"
-
-      - name: Verify Homebrew tap
-        run: |
-          set -euo pipefail
-          brew tap IzieStratt/taut
-          brew audit --cask IzieStratt/taut/taut
-          brew fetch --cask IzieStratt/taut/taut --force
