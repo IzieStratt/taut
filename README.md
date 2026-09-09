@@ -14,8 +14,10 @@ Client mod for Slack :D
       `xattr -d com.apple.quarantine /Applications/Taut.app`
     [Homebrew](https://brew.sh/): (Unofficial)
     - Run in your terminal:
-      `brew tap IzieStratt/taut
-      brew install --cask taut`
+      ```sh
+      brew tap IzieStratt/taut
+      brew install --cask taut
+      ```
     - Run before launching:
       `xattr -d com.apple.quarantine /Applications/Taut.app` 
   - Linux: [x64](https://taut.jer.app/taut-linux.AppImage) /
