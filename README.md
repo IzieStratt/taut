@@ -4,15 +4,6 @@ Client mod for Slack :D
 
 ## Quickstart
 
-### Homebrew (macOS)
-
-```sh
-brew tap IzieStratt/taut
-brew install --cask taut
-```
-
-The cask follows the latest Taut release published from the repository.
-
 - Desktop:
   - Windows: [x64](https://taut.jer.app/taut-win.exe) /
     [ARM](https://taut.jer.app/taut-win-arm.exe)
