@@ -39,6 +39,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 // Save real resourcesPath before patch.ts spoofs it
 const realResourcesPath = process.resourcesPath
 
+// don't touch global stuff like slack://, .desktop, etc
+const temporary = process.env.TAUT_TEMPORARY === '1'
+
 await loadPrefs()
 
 if (__TAUT_EMBEDDED__) {
@@ -110,15 +113,17 @@ function openOptionsWindow() {
 function startSlack(slackAsarPath: string) {
   setOpenOptionsWindow(openOptionsWindow)
 
-  // the desktop entry has to exist before xdg is asked to route slack:// to it
-  void installAppImageDesktopEntry().then(() => {
-    const ok = app.setAsDefaultProtocolClient('slack')
-    console.log(
-      ok
-        ? '[Taut] Registered as slack:// handler'
-        : '[Taut] Failed to register as slack:// handler'
-    )
-  })
+  if (!temporary) {
+    // the desktop entry has to exist before xdg is asked to route slack:// to it
+    void installAppImageDesktopEntry().then(() => {
+      const ok = app.setAsDefaultProtocolClient('slack')
+      console.log(
+        ok
+          ? '[Taut] Registered as slack:// handler'
+          : '[Taut] Failed to register as slack:// handler'
+      )
+    })
+  }
   applyPatches(slackAsarPath, path.join(__dirname, 'preload.js'))
 
   app
@@ -131,6 +136,7 @@ function startSlack(slackAsarPath: string) {
 
   function requestNotificationPermission() {
     try {
+      if (temporary) return
       if (!Notification.isSupported()) return
       if (getNotifPrompted()) return
       const notification = new Notification({

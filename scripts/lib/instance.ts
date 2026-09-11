@@ -178,8 +178,10 @@ export interface InstanceOptions {
   inspectPort?: number
   /** mirror the log to this process's stdout (default true) */
   echo?: boolean
-  /** keep the app off the foreground: no dock icon, never focused, parked offscreen */
+  /** keep the app off the foreground: no dock icon, never focused, transparent */
   background?: boolean
+  /** register slack:// and the desktop entry, as a real install does */
+  systemInstall?: boolean
   /** runs against each target while it is still paused at its first
    * statement, the only place to get ahead of the page's own scripts */
   onAttach?: (page: Page) => unknown
@@ -236,7 +238,13 @@ let built = false
 export async function launchInstance(
   options: InstanceOptions = {}
 ): Promise<Instance> {
-  const { url, onAttach, echo = true, background = false } = options
+  const {
+    url,
+    onAttach,
+    echo = true,
+    background = false,
+    systemInstall = false,
+  } = options
   const root = options.root ?? instanceRoot(options.name ?? 'dev')
   const configDir = path.join(root, 'config')
 
@@ -304,7 +312,11 @@ export async function launchInstance(
   const startedAt = Date.now()
   const elapsed = () => Date.now() - startedAt
   const child = spawn(exe, argv, {
-    env: { ...process.env, TAUT_CONFIG_DIR: configDir },
+    env: {
+      ...process.env,
+      TAUT_CONFIG_DIR: configDir,
+      ...(systemInstall ? {} : { TAUT_TEMPORARY: '1' }),
+    },
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   pipeLines(
