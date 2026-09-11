@@ -178,6 +178,8 @@ export interface InstanceOptions {
   inspectPort?: number
   /** mirror the log to this process's stdout (default true) */
   echo?: boolean
+  /** keep the app off the foreground: no dock icon, never focused, parked offscreen */
+  background?: boolean
   /** runs against each target while it is still paused at its first
    * statement, the only place to get ahead of the page's own scripts */
   onAttach?: (page: Page) => unknown
@@ -234,7 +236,7 @@ let built = false
 export async function launchInstance(
   options: InstanceOptions = {}
 ): Promise<Instance> {
-  const { url, onAttach, echo = true } = options
+  const { url, onAttach, echo = true, background = false } = options
   const root = options.root ?? instanceRoot(options.name ?? 'dev')
   const configDir = path.join(root, 'config')
 
@@ -286,6 +288,12 @@ export async function launchInstance(
     // seeded cookies and secrets.dat unreadable; slack's own token is in
     // localStorage, so it still signs in
     '--use-mock-keychain',
+    // an unfocused or transparent window is otherwise treated as occluded, and
+    // chromium then stops rendering it and throttles its timers, which silently
+    // zeroes out every measurement
+    '--disable-backgrounding-occluded-windows',
+    '--disable-renderer-backgrounding',
+    '--disable-background-timer-throttling',
     `--remote-debugging-port=${cdpPort}`,
     ...(inspectPort ? [`--inspect=${inspectPort}`] : []),
   ]
@@ -322,6 +330,33 @@ export async function launchInstance(
   // a script that throws before stop() would otherwise leave the app running
   process.once('exit', () => child.kill('SIGKILL'))
 
+  let inspector: Cdp | undefined
+  const mainEval = async (fn: (...args: any[]) => any, ...args: unknown[]) => {
+    if (!inspectPort) throw new Error('the main process inspector is closed')
+    inspector ??= await poll(
+      async () =>
+        connect(
+          (await cdpJson<any[]>(inspectPort, '/json/list'))[0]
+            .webSocketDebuggerUrl
+        ),
+      alive
+    )
+    const expression = `(${fn})(${args.map((a) => JSON.stringify(a)).join(',')})`
+    const { result, exceptionDetails } = await inspector.send(
+      'Runtime.evaluate',
+      { expression, returnByValue: true, awaitPromise: true }
+    )
+    if (exceptionDetails) {
+      throw new Error(
+        exceptionDetails.exception?.description ?? exceptionDetails.text
+      )
+    }
+    return result.value
+  }
+  // before anything else waits: the window is created a few hundred ms in, and
+  // once it has activated the app the focus is already stolen
+  if (background) await keepInBackground(mainEval, alive)
+
   const endpoint = await poll(
     () => cdpJson<{ webSocketDebuggerUrl: string }>(cdpPort, '/json/version'),
     alive
@@ -329,7 +364,6 @@ export async function launchInstance(
   const cdp = await connect(endpoint.webSocketDebuggerUrl)
   const consoleListeners = new Set<(line: LogLine) => void>()
   const sessions = new Map<string, Page>()
-  let inspector: Cdp | undefined
 
   cdp.on((event) => {
     if (event.method === 'Target.attachedToTarget') {
@@ -352,7 +386,7 @@ export async function launchInstance(
     flatten: true,
   })
 
-  return {
+  const instance: Instance = {
     root,
     configDir,
     cdpPort,
@@ -385,28 +419,7 @@ export async function launchInstance(
       return () => consoleListeners.delete(listener)
     },
     processes: () => sampleProcesses(child.pid ?? -1),
-    async main(fn, ...args) {
-      if (!inspectPort) throw new Error('the main process inspector is closed')
-      inspector ??= await poll(
-        async () =>
-          connect(
-            (await cdpJson<any[]>(inspectPort, '/json/list'))[0]
-              .webSocketDebuggerUrl
-          ),
-        alive
-      )
-      const expression = `(${fn})(${args.map((a) => JSON.stringify(a)).join(',')})`
-      const { result, exceptionDetails } = await inspector.send(
-        'Runtime.evaluate',
-        { expression, returnByValue: true, awaitPromise: true }
-      )
-      if (exceptionDetails) {
-        throw new Error(
-          exceptionDetails.exception?.description ?? exceptionDetails.text
-        )
-      }
-      return result.value
-    },
+    main: mainEval,
     async stop() {
       await served?.close()
       if (code !== null) return exited
@@ -421,6 +434,62 @@ export async function launchInstance(
       }
     },
   }
+
+  return instance
+}
+
+// human note: this is ai jank, no idea how well it works
+
+// macos: an "accessory" app never becomes active, so the window can't take
+// focus. it still has to stay on screen and visible to the window server or
+// chromium stops rendering it (parking it offscreen zeroes out layout and
+// style), so it is made fully transparent and click-through instead
+async function keepInBackground(
+  mainEval: (fn: (...args: any[]) => any, ...args: unknown[]) => Promise<any>,
+  alive: () => boolean
+) {
+  await poll(
+    () =>
+      mainEval(() => {
+        const binding = (process as any)._linkedBinding
+        const { app } = binding('electron_browser_app')
+        const { BrowserWindow } = binding('electron_browser_window')
+        app.setActivationPolicy?.('accessory')
+        try {
+          app.dock?.hide?.()
+        } catch {}
+        app.focus = () => {}
+        const hide = (win: any) => {
+          try {
+            win.setOpacity(0)
+            win.setIgnoreMouseEvents(true)
+            if (win.isFocused()) win.blur()
+          } catch {}
+        }
+        if (!(app as any).__tautBackground) {
+          ;(app as any).__tautBackground = true
+          // electron reasserts a regular activation policy as it starts up, so
+          // the app flashes to the front unless this keeps putting it back
+          const keep = setInterval(() => {
+            app.setActivationPolicy?.('accessory')
+            for (const win of BrowserWindow.getAllWindows()) hide(win)
+          }, 50)
+          setTimeout(() => clearInterval(keep), 20_000)
+          // setOpacity before a window is shown does not stick, so re-apply on
+          // every event that can put it in front
+          app.on?.('browser-window-created', (_e: unknown, win: any) => {
+            hide(win)
+            for (const event of ['show', 'focus', 'restore', 'ready-to-show']) {
+              win.on?.(event, () => hide(win))
+            }
+          })
+        }
+        for (const win of BrowserWindow.getAllWindows()) hide(win)
+        return true
+      }).catch(() => false),
+    alive,
+    { timeout: 20_000, interval: 20, what: 'the main process inspector' }
+  )
 }
 
 async function hold(

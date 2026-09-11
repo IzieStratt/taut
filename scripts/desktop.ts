@@ -20,6 +20,9 @@ name            instance name (default: dev)
 --url <spec>    which bundle to load: ${URL_SPECS.join(' | ')} | <url>
                 none serves an empty script, local and debug serve dist/
 --cdp <port>    devtools port (default: the first free one from 9222)
+--background    keep it out of your way: no dock icon, never takes focus, and
+                transparent and click-through (it still renders, so measurements
+                are unaffected) (may be buggy, only tested on macOS)
 
 To script it, import launchInstance from scripts/lib/instance.ts.
 `
@@ -46,6 +49,7 @@ while (argv.length) {
   } else if (arg === '--seed') options.seed = true
   else if (arg === '--reset') options.reset = true
   else if (arg === '--url') options.url = next(arg)
+  else if (arg === '--background') options.background = true
   else if (arg === '--cdp') options.cdpPort = Number(next(arg))
   else if (arg.startsWith('-')) fail(`Unknown option "${arg}"`)
   else options.name = arg
