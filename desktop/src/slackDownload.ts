@@ -8,9 +8,10 @@ import { pipeline } from 'node:stream/promises'
 import type { ReadableStream } from 'node:stream/web'
 import { fileURLToPath } from 'node:url'
 import { createGunzip } from 'node:zlib'
-import { app, BrowserWindow, dialog, net } from 'electron'
+import { BrowserWindow, dialog, net } from 'electron'
 import tar from 'tar-stream'
 import { downloadedNativesDir } from './nativeModules.js'
+import { configDir } from './paths.js'
 import { extractDebDir, extractZipDir } from './slackArchive.js'
 
 declare const __TAUT_SLACK_VERSION__: string
@@ -19,7 +20,7 @@ export const SLACK_VERSION = __TAUT_SLACK_VERSION__
 const CDN = 'https://downloads.slack-edge.com/desktop-releases'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-const slackRoot = () => path.join(app.getPath('appData'), 'Taut', 'slack')
+const slackRoot = () => path.join(configDir(), 'slack')
 const resourcesDir = () => path.join(slackRoot(), SLACK_VERSION)
 
 export function cachedSlackAsar(): string | undefined {

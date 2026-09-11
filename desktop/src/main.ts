@@ -19,6 +19,7 @@ import {
 import { installAppImageDesktopEntry } from './appImage.js'
 import { setupBridge } from './bridge.js'
 import { applyPatches, setOpenOptionsWindow } from './patch.js'
+import { configDir } from './paths.js'
 import { getAppUrl, getNotifPrompted, loadPrefs, savePrefs } from './prefs.js'
 import { setupSession } from './session.js'
 import {
@@ -173,7 +174,7 @@ function startSlack(slackAsarPath: string) {
 
   setupBridge(
     {
-      configDir: path.join(app.getPath('appData'), 'Taut'),
+      configDir: configDir(),
     },
     {
       getAppUrl,

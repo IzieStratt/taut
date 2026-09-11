@@ -9,6 +9,7 @@ import { createRequire } from 'node:module'
 import path from 'node:path'
 import { app, ipcMain, Menu, shell } from 'electron'
 import { redirectNativeModules } from './nativeModules.js'
+import { configDir } from './paths.js'
 
 const cjsRequire = createRequire(import.meta.url)
 const NodeModule = cjsRequire('module') as any
@@ -190,5 +191,5 @@ export function applyPatches(slackAsarPath: string, tautPreloadPath: string) {
     value: slackResourcesPath,
   })
   app.getAppPath = () => slackAsarPath
-  app.setPath('userData', path.join(app.getPath('appData'), 'Taut', 'profile'))
+  app.setPath('userData', path.join(configDir(), 'profile'))
 }

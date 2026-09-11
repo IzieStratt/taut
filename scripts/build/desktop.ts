@@ -60,7 +60,7 @@ function resolveMacIdentity(): string | null | undefined {
 
 // Stage the variant's compiled JS into desktop/build/app/
 
-async function buildJs(variant: Variant) {
+export async function buildDesktopJs(variant: Variant) {
   const isEmbedded = variant === 'embedded'
   const define = {
     __TAUT_EMBEDDED__: String(isEmbedded),
@@ -183,7 +183,7 @@ async function packageVariant(variant: Variant, platforms: PlatformKey[]) {
   console.log(
     `[build-desktop] Building ${variant} [${platforms.join(', ')}]...`
   )
-  await buildJs(variant)
+  await buildDesktopJs(variant)
 
   await rm(path.join(BUILD_ROOT, 'builder', variant), {
     recursive: true,

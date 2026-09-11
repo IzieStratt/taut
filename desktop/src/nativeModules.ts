@@ -12,7 +12,7 @@ import {
 } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
-import { app } from 'electron'
+import { configDir } from './paths.js'
 
 const cjsRequire = createRequire(import.meta.url)
 const NodeModule = cjsRequire('module') as any
@@ -39,8 +39,7 @@ function stageWindowsApps() {
   wrapNodeLoader((filename) => {
     if (!filename.toLowerCase().startsWith(windowsApps)) return filename
     const cacheDir = path.join(
-      app.getPath('appData'),
-      'Taut',
+      configDir(),
       'native-cache',
       createHash('sha1').update(filename).digest('hex').slice(0, 16)
     )

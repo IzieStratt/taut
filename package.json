@@ -25,6 +25,7 @@
     "build:natives": "node scripts/natives.ts",
     "build:user-plugin": "node scripts/userPlugin.ts",
     "dev": "node scripts/dev.ts",
+    "desktop:dev": "node scripts/desktop.ts",
     "repo": "node scripts/repo.ts",
     "format": "biome format --write .",
     "lint": "biome lint .",

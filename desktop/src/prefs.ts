@@ -1,10 +1,9 @@
 // Taut Desktop Preferences
 // Reads/writes taut-prefs.json in the Taut config directory.
-// Uses app.getPath('appData') which is NOT affected by the userData redirect in patch.ts.
 
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
-import { app } from 'electron'
+import { configDir } from './paths.js'
 
 declare const __TAUT_EMBEDDED__: boolean
 
@@ -15,7 +14,7 @@ const DEFAULT_APP_URL = __TAUT_EMBEDDED__
   : 'https://taut.jer.app/taut.js'
 
 function getPrefsPath(): string {
-  return path.join(app.getPath('appData'), 'Taut', 'prefs.json')
+  return path.join(configDir(), 'prefs.json')
 }
 
 interface TautPrefs {
