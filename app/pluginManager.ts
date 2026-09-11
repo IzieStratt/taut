@@ -16,6 +16,7 @@ import { menuAPIPromise } from './api/menu'
 import { setupMessageSendDelta } from './api/messageSend'
 import { dialogHelpersFor, modalAPIPromise } from './api/modal'
 import { ScopedStorage } from './api/pluginStorage'
+import { deferResizeWork } from './api/resize'
 import { Store } from './api/store'
 import { userAPI } from './api/userAPI'
 import type { NormalizedBridge } from './bridgeCompat'
@@ -97,6 +98,7 @@ async function makeBaseTautAPI(bridge: NormalizedBridge) {
       react: await reactPromise,
     },
     onMessageSendDelta: setupMessageSendDelta(patchComponent),
+    deferResizeWork,
     Store,
   }
   global.TautAPI = TautAPI
@@ -211,6 +213,7 @@ function createScopedAPI(
       injectMessages: tracked(base.messages.injectMessages),
     },
     onMessageSendDelta: tracked(base.onMessageSendDelta),
+    deferResizeWork: tracked(base.deferResizeWork),
     setStyle: tracked((css: string | null, key?: string) =>
       base.setStyle(css, key === undefined ? undefined : `plugin:${id}:${key}`)
     ),

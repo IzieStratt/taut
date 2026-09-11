@@ -3,6 +3,7 @@
 
 import { applyPendingSwitch } from './api/accountSwitcher'
 import { setStyle } from './api/css'
+import { installResizeGate } from './api/resize'
 import type { NormalizedBridge } from './bridgeCompat'
 import { bundledPlugins } from './bundledData'
 import { ConfigStore } from './configStore'
@@ -19,6 +20,7 @@ export async function bootstrap(bridge: NormalizedBridge): Promise<void> {
 
   // must stay before any await
   applyPendingSwitch()
+  installResizeGate()
 
   await bridge.start()
 
