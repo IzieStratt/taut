@@ -106,6 +106,8 @@ app.whenReady().then(async () => {
   requestNotificationPermission()
   setupSession(realResourcesPath)
 
+  if (process.env.TAUT_REACT_DEVTOOLS !== '1') return
+
   try {
     await installExtension(REACT_DEVELOPER_TOOLS)
     // Workaround for https://github.com/electron/electron/issues/41613
