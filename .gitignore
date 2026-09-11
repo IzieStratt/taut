@@ -9,3 +9,4 @@ desktop/build/
 .wrangler
 bun.lock
 desktop/native/
+desktop/sounds/

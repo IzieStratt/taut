@@ -22,6 +22,7 @@ import { commandExists } from '../lib/fs.ts'
 import { nativesDir, SLACK_NATIVE_MODULES } from '../lib/natives.ts'
 import { renderOptions } from '../lib/options.ts'
 import { ASSETS, DESKTOP, DIST, TAUT_DEBUG_JS } from '../lib/paths.ts'
+import { ensureSlackSounds } from '../lib/slackSounds.ts'
 import { versions } from '../lib/versions.ts'
 
 const SRC = path.join(DESKTOP, 'src')
@@ -126,7 +127,8 @@ async function assertNatives(key: PlatformKey) {
 function makeConfig(
   variant: Variant,
   key: PlatformKey,
-  macIdentity: string | null | undefined
+  macIdentity: string | null | undefined,
+  macSounds: string | null
 ): Configuration {
   const isEmbedded = variant === 'embedded'
   const suffix = variantSuffix(variant)
@@ -158,6 +160,15 @@ function makeConfig(
       ...(isEmbedded ? [{ from: TAUT_DEBUG_JS, to: 'taut.js' }] : []),
       ...(needsNatives(key)
         ? [{ from: path.relative(DESKTOP, nativesDir(key)), to: 'native' }]
+        : []),
+      ...(macSounds
+        ? [
+            {
+              from: path.relative(DESKTOP, macSounds),
+              to: '.',
+              filter: ['*.mp3'],
+            },
+          ]
         : []),
     ],
     protocols: [{ name: 'Slack URL', schemes: ['slack'], role: 'Viewer' }],
@@ -196,6 +207,7 @@ async function packageVariant(variant: Variant, platforms: PlatformKey[]) {
   for (const key of platforms) {
     const def = DESKTOP_PLATFORMS[key]
     if (needsNatives(key)) await assertNatives(key)
+    const macSounds = def.os === 'mac' ? await ensureSlackSounds() : null
     if (def.os === 'mac') {
       const how =
         macIdentity === undefined
@@ -229,7 +241,7 @@ async function packageVariant(variant: Variant, platforms: PlatformKey[]) {
         ELECTRON_ARCHES[def.arch]
       ),
       publish: 'never',
-      config: makeConfig(variant, key, macIdentity),
+      config: makeConfig(variant, key, macIdentity, macSounds),
     })
 
     for (const artifact of artifacts) {
