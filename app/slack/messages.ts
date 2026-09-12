@@ -7,7 +7,7 @@ import {
   patchSlice,
   reduxPromise,
 } from './redux'
-import { findExportPromise } from './webpack'
+import { waitForExport } from './webpack'
 
 export type SlackBotIcons = {
   image_36?: string
@@ -233,20 +233,20 @@ type SenderDetails = (
 
 export const messagesPromise = (async () => {
   const { useReduxState } = await reduxPromise
-  const findExport = await findExportPromise
   // the activity view is a lazy chunk
-  let cached: SenderDetails | undefined
-  const readSender = (): SenderDetails | undefined =>
-    (cached ??= findExport(
-      (e: any) =>
-        typeof e === 'function' && e.name === 'getSenderDetailsFromActivityItem'
-    ))
+  let readSender: SenderDetails | undefined
+  void waitForExport<SenderDetails>(
+    (e: any) =>
+      typeof e === 'function' && e.name === 'getSenderDetailsFromActivityItem'
+  ).then((found) => {
+    readSender = found
+  })
 
   function useActivityMessage(
     item: SlackActivityItem | undefined
   ): SlackMessage | undefined {
     const drawn = useReduxState<string | undefined>((state) => {
-      const sender = readSender()?.(state, item)
+      const sender = readSender?.(state, item)
       return sender?.senderType === 'app' ? undefined : sender?.senderId
     })
     const msg =

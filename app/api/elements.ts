@@ -1,7 +1,7 @@
 // Taut Elements Registry
 // Central place to find Slack's React components
 
-import { findComponentPromise, reactPromise } from '../slack/react'
+import { lazyComponent, reactPromise } from '../slack/react'
 
 export type SvgIconProps = {
   name: string
@@ -234,53 +234,32 @@ export type FormTextInputProps = {
   className?: string
 }
 
-// A component that renders nothing and logs once, for when a lookup fails
-function missingElement<P extends {}>(name: string): React.ComponentType<P> {
-  let warned = false
-  return function TautMissingElement() {
-    if (!warned) {
-      warned = true
-      console.error(`[Taut] Elements: "${name}" is unavailable`)
-    }
-    return null
-  }
-}
-
 export const elementsAPIPromise = (async () => {
   await reactPromise
-  const findComponent = await findComponentPromise
-
-  function resolve<P extends {}>(name: string): React.ComponentType<P> {
-    try {
-      return findComponent<P>(name)
-    } catch (err) {
-      console.error(`[Taut] Elements: could not resolve "${name}"`, err)
-      return missingElement<P>(name)
-    }
-  }
 
   return {
-    SvgIcon: resolve<SvgIconProps>('SvgIcon'),
-    Avatar: resolve<AvatarProps>('ConnectedBaseAvatar'),
-    ProfileHoverTrigger: resolve<ProfileHoverTriggerProps>(
+    SvgIcon: lazyComponent<SvgIconProps>('SvgIcon'),
+    Avatar: lazyComponent<AvatarProps>('ConnectedBaseAvatar'),
+    ProfileHoverTrigger: lazyComponent<ProfileHoverTriggerProps>(
       'ProfileHoverTrigger'
     ),
-    MrkdwnElement: resolve<MrkdwnElementProps>('MrkdwnElement'),
-    Button: resolve<ButtonProps>('Button'),
-    Tooltip: resolve<TooltipProps>('Tooltip'),
-    IconButtonBase: resolve<IconButtonBaseProps>('IconButtonBase'),
-    ConfirmationModal: resolve<ConfirmationModalProps>('ConfirmationModal'),
-    InlineAlert: resolve<InlineAlertProps>('InlineAlert'),
-    Label: resolve<LabelProps>('Label'),
-    FormTextInput: resolve<FormTextInputProps>('FormTextInput'),
-    DateRangePicker: resolve<DateRangePickerProps>('DateRangePicker'),
-    FieldSet: resolve<FieldSetProps>('FieldSet'),
-    Legend: resolve<LegendProps>('Legend'),
-    Hint: resolve<HintProps>('Hint'),
-    BasicSelect: resolve<BasicSelectProps>('BasicSelect'),
-    Blocks: resolve<BlocksProps>('Blocks'),
-    MenuTrigger: resolve<MenuTriggerProps>('MenuTrigger'),
-    MenuFromTemplate: resolve<MenuFromTemplateProps>('MenuFromTemplate'),
+    MrkdwnElement: lazyComponent<MrkdwnElementProps>('MrkdwnElement'),
+    Button: lazyComponent<ButtonProps>('Button'),
+    Tooltip: lazyComponent<TooltipProps>('Tooltip'),
+    IconButtonBase: lazyComponent<IconButtonBaseProps>('IconButtonBase'),
+    ConfirmationModal:
+      lazyComponent<ConfirmationModalProps>('ConfirmationModal'),
+    InlineAlert: lazyComponent<InlineAlertProps>('InlineAlert'),
+    Label: lazyComponent<LabelProps>('Label'),
+    FormTextInput: lazyComponent<FormTextInputProps>('FormTextInput'),
+    DateRangePicker: lazyComponent<DateRangePickerProps>('DateRangePicker'),
+    FieldSet: lazyComponent<FieldSetProps>('FieldSet'),
+    Legend: lazyComponent<LegendProps>('Legend'),
+    Hint: lazyComponent<HintProps>('Hint'),
+    BasicSelect: lazyComponent<BasicSelectProps>('BasicSelect'),
+    Blocks: lazyComponent<BlocksProps>('Blocks'),
+    MenuTrigger: lazyComponent<MenuTriggerProps>('MenuTrigger'),
+    MenuFromTemplate: lazyComponent<MenuFromTemplateProps>('MenuFromTemplate'),
   }
 })()
 

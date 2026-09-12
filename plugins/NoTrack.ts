@@ -46,6 +46,7 @@ export default class NoTrack extends TautPlugin {
   `
 
   private matchers: RegExp[] = []
+  private running = false
   private originalFetch: typeof window.fetch | null = null
   private originalXHROpen: typeof XMLHttpRequest.prototype.open | null = null
   private originalSendBeacon: typeof navigator.sendBeacon | null = null
@@ -62,15 +63,16 @@ export default class NoTrack extends TautPlugin {
     return (input as Request).url
   }
 
-  private exportByName<T = any>(name: string): T | null {
-    return this.api.findExport(
+  private exportByName<T = any>(name: string): Promise<T> {
+    return this.api.waitForExport<T>(
       (exp: any) => typeof exp === 'function' && exp.name === name
     )
   }
 
-  private stopTracing(): void {
-    const getGenericTracer = this.exportByName<() => any>('getGenericTracer')
-    if (!getGenericTracer) return
+  private async stopTracing(): Promise<void> {
+    const getGenericTracer =
+      await this.exportByName<() => any>('getGenericTracer')
+    if (!this.running) return
     const proto = Object.getPrototypeOf(getGenericTracer())
     const original = proto.shouldSample
     if (typeof original !== 'function') return
@@ -80,12 +82,12 @@ export default class NoTrack extends TautPlugin {
     })
   }
 
-  private stopMetrics(): void {
-    const getGenericTelemeter = this.exportByName<() => any>(
-      'getGenericTelemeter'
-    )
-    const getNoopTelemeter = this.exportByName<() => any>('getNoopTelemeter')
-    if (!getGenericTelemeter || !getNoopTelemeter) return
+  private async stopMetrics(): Promise<void> {
+    const [getGenericTelemeter, getNoopTelemeter] = await Promise.all([
+      this.exportByName<() => any>('getGenericTelemeter'),
+      this.exportByName<() => any>('getNoopTelemeter'),
+    ])
+    if (!this.running) return
 
     const real = Object.getPrototypeOf(getGenericTelemeter())
     const noop = Object.getPrototypeOf(getNoopTelemeter())
@@ -100,6 +102,7 @@ export default class NoTrack extends TautPlugin {
   }
 
   start(): void {
+    this.running = true
     this.matchers = TRACKING_PATTERNS.map(globToRegex)
 
     // Patch fetch
@@ -138,17 +141,16 @@ export default class NoTrack extends TautPlugin {
       }
     }
 
-    try {
-      this.stopTracing()
-      this.stopMetrics()
-    } catch (error) {
+    const failed = (error: unknown) =>
       this.log('Could not stop a metrics pipeline', error)
-    }
+    this.stopTracing().catch(failed)
+    this.stopMetrics().catch(failed)
 
     this.log('Started, blocking', this.matchers.length, 'patterns')
   }
 
   stop(): void {
+    this.running = false
     if (this.originalFetch) {
       window.fetch = this.originalFetch
       this.originalFetch = null

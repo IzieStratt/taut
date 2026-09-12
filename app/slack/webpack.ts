@@ -82,11 +82,8 @@ const pendingMatchers = new Map<
 export function waitForExport<T>(matcher: ExportMatcher<T>): Promise<T>
 export function waitForExport<T>(matcher: SimpleMatcher): Promise<T>
 export function waitForExport(matcher: SimpleMatcher): Promise<any> {
-  // Check existing exports first
-  for (const [_id, exp] of __webpackModuleRegistry) {
-    const found = matchExportOrProps(exp, matcher)
-    if (found !== undefined) return Promise.resolve(found)
-  }
+  const existing = getExport(matcher)
+  if (existing !== undefined) return Promise.resolve(existing)
 
   // Not found yet, register a pending matcher
   return new Promise((resolve) => {
@@ -294,16 +291,7 @@ function installWebpackHook(globalName: string) {
 
 for (const name of CHUNK_GLOBAL_NAMES) installWebpackHook(name)
 
-// When the 'load' event fires, all webpack chunks should be loaded
-export const webpackLoaded = new Promise<void>((resolve) => {
-  if (document.readyState === 'complete') {
-    resolve()
-  } else {
-    window.addEventListener('load', () => resolve())
-  }
-})
-
-// Post-load Lookups
+// Snapshot Lookups
 
 function allExports(): [string, any][] {
   return Array.from(__webpackModuleRegistry.entries()).map(([id, exp]) => [
@@ -311,60 +299,41 @@ function allExports(): [string, any][] {
     exp,
   ])
 }
-export const allExportsPromise = (async () => {
-  await webpackLoaded
-  return allExports
-})()
 
-type filter = (exp: any) => boolean
-
-function findExport(filter: filter, all?: false): any | null
-function findExport(filter: filter, all: true): any[]
-function findExport(filter: filter, all = false) {
+export function getExport<T>(matcher: ExportMatcher<T>): T | undefined
+export function getExport<T>(matcher: SimpleMatcher): T | undefined
+export function getExport<T>(matcher: SimpleMatcher, all: true): T[]
+export function getExport(matcher: SimpleMatcher, all = false) {
   const results = new Set<any>()
 
-  for (const [_id, exp] of __webpackModuleRegistry) {
-    try {
-      if (filter(exp)) {
-        if (!all) return exp
-        results.add(exp)
-      }
-    } catch {}
-    for (const key in exp) {
-      if (!Object.hasOwn(exp, key)) continue
+  for (const [_id, exports] of __webpackModuleRegistry) {
+    const candidates = [exports]
+    for (const key in exports) {
+      if (!Object.hasOwn(exports, key)) continue
       try {
-        const candidate = exp[key]
-        if (filter(candidate)) {
-          if (!all) return candidate
-          results.add(candidate)
-        }
+        candidates.push(exports[key])
       } catch {}
     }
+    for (const candidate of candidates) {
+      try {
+        if (!matcher(candidate)) continue
+      } catch {
+        continue
+      }
+      if (!all) return candidate
+      results.add(candidate)
+    }
   }
-  return all ? [...results] : null
+  return all ? [...results] : undefined
 }
-export const findExportPromise = (async () => {
-  await webpackLoaded
-  return findExport
-})()
 
-function findByProps(props: string[], all?: false): any | null
-function findByProps(props: string[], all: true): any[]
-function findByProps(props: string[], all = false) {
-  const func = (exp: any) =>
+export function getByProps<T>(props: string[]): T | undefined
+export function getByProps<T>(props: string[], all: true): T[]
+export function getByProps(props: string[], all = false) {
+  const matcher = (exp: any) =>
     exp && typeof exp === 'object' && props.every((prop) => prop in exp)
-
-  if (all) {
-    return findExport(func, true)
-  } else {
-    return findExport(func)
-  }
+  return all ? getExport(matcher, true) : getExport(matcher)
 }
-export const findByPropsPromise = (async () => {
-  await webpackLoaded
-  return findByProps
-})()
-
 // Source Inspection
 
 /** Get the source of a webpack module by id */
@@ -397,8 +366,8 @@ export function getValueSource(value: any): string {
 global.__webpackModuleRegistry = __webpackModuleRegistry
 global.__webpackModuleFactories = __webpackModuleFactories
 global.allExports = allExports
-global.findExport = findExport
-global.findByProps = findByProps
+global.getExport = getExport
+global.getByProps = getByProps
 global.getModuleSource = getModuleSource
 global.findModuleId = findModuleId
 global.getValueSource = getValueSource

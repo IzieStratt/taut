@@ -17,7 +17,6 @@ import { setupMessageSendDelta } from './api/messageSend'
 import { dialogHelpersFor, modalAPIPromise } from './api/modal'
 import { ScopedStorage } from './api/pluginStorage'
 import { deferResizeWork } from './api/resize'
-import { Store } from './api/store'
 import { userAPI } from './api/userAPI'
 import type { NormalizedBridge } from './bridgeCompat'
 import { initJsonc } from './cdn'
@@ -29,15 +28,18 @@ import { filesPromise } from './slack/files'
 import { membersPromise } from './slack/members'
 import { messagesPromise } from './slack/messages'
 import {
-  findComponentPromise,
-  findRenderedComponent,
+  getComponent,
+  getRenderedComponent,
+  lazyComponent,
   patchComponentPromise,
   reactPromise,
+  waitForComponent,
   waitForRenderedComponent,
 } from './slack/react'
 import { reduxPromise } from './slack/redux'
 import { rtmPromise } from './slack/rtm'
-import { findByPropsPromise, findExportPromise } from './slack/webpack'
+import { getByProps, getExport, waitForExport } from './slack/webpack'
+import { Store } from './store'
 
 const PLUGIN_ID_RE = /^[A-Za-z0-9_.-]+$/
 const PLUGIN_LIFECYCLE_TIMEOUT_MS = 5_000
@@ -74,11 +76,14 @@ async function makeBaseTautAPI(bridge: NormalizedBridge) {
 
   const TautAPI = {
     setStyle,
-    findExport: await findExportPromise,
-    findByProps: await findByPropsPromise,
-    findComponent: await findComponentPromise,
-    findRenderedComponent,
+    waitForExport,
+    waitForComponent,
     waitForRenderedComponent,
+    lazyComponent,
+    getExport,
+    getByProps,
+    getComponent,
+    getRenderedComponent,
     patchComponent,
     redux: await reduxPromise,
     members: await membersPromise,

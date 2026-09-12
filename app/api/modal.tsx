@@ -3,7 +3,7 @@
 
 import { reactPromise } from '../slack/react'
 import { getReduxStore } from '../slack/redux'
-import { findExportPromise } from '../slack/webpack'
+import { waitForExport } from '../slack/webpack'
 import { elementsAPIPromise } from './elements'
 
 type RawModalHandle = { close: () => void; render: (props: unknown) => void }
@@ -99,18 +99,15 @@ export function dialogHelpersFor(
 export const modalAPIPromise = (async () => {
   await reactPromise
   const elements = await elementsAPIPromise
-  const findExport = await findExportPromise
 
-  let openModalThunk: OpenModalThunk | null = null
-  try {
-    openModalThunk = findExport(
-      (e: unknown) =>
-        typeof e === 'function' &&
-        (e as { meta?: { name?: string } }).meta?.name === 'openModal'
-    ) as OpenModalThunk
-  } catch (err) {
-    console.error('[Taut] Modal API: could not resolve openModal', err)
-  }
+  let openModalThunk: OpenModalThunk | undefined
+  void waitForExport<OpenModalThunk>(
+    (e: unknown) =>
+      typeof e === 'function' &&
+      (e as { meta?: { name?: string } }).meta?.name === 'openModal'
+  ).then((found) => {
+    openModalThunk = found
+  })
 
   const Confirmation = elements.ConfirmationModal
   const Label = elements.Label
@@ -118,7 +115,8 @@ export const modalAPIPromise = (async () => {
 
   function openModal(options: OpenModalOptions): ModalHandle | null {
     const store = getReduxStore()
-    if (!store || !openModalThunk) {
+    const openModalAction = openModalThunk
+    if (!store || !openModalAction) {
       console.error('[Taut] Modal API: Slack modal system unavailable')
       return null
     }
@@ -150,9 +148,9 @@ export const modalAPIPromise = (async () => {
     )
 
     const name = typeof options.title === 'string' ? options.title : 'modal'
-    const handle = store.dispatch(
-      (openModalThunk as OpenModalThunk)({ element, name })
-    ) as RawModalHandle | undefined
+    const handle = store.dispatch(openModalAction({ element, name })) as
+      | RawModalHandle
+      | undefined
     closeRef.current = () => handle?.close()
 
     return { close: () => handle?.close() }

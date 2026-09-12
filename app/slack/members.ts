@@ -7,7 +7,7 @@ import {
   getReduxStore,
   reduxPromise,
 } from './redux'
-import { findExportPromise } from './webpack'
+import { waitForExport } from './webpack'
 
 export type SlackMember = {
   id?: string
@@ -123,12 +123,15 @@ export async function getMember(
 export const membersPromise = (async () => {
   const React = await reactPromise
   const { useReduxState } = await reduxPromise
-  const findExport = await findExportPromise
-  const readMember: GetMemberById =
-    findExport(
-      (e: any) =>
-        typeof e === 'function' && e.meta?.key === 'createSelectorGetMemberById'
-    ) ?? ((state, userId) => state.members?.[userId])
+  let selector: GetMemberById | undefined
+  void waitForExport<GetMemberById>(
+    (e: any) =>
+      typeof e === 'function' && e.meta?.key === 'createSelectorGetMemberById'
+  ).then((found) => {
+    selector = found
+  })
+  const readMember: GetMemberById = (state, userId) =>
+    selector?.(state, userId) ?? state.members?.[userId]
 
   /** Reactively read a member, asking Slack to load them if it hasn't yet */
   function useMember(userId: string): SlackMember | undefined {

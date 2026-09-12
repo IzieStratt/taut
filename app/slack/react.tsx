@@ -1,10 +1,11 @@
 // Taut React Utilities
 // Provides utilities for finding and patching React components
 
+import { Store } from '../store'
 import {
-  findExportPromise,
   findModuleId,
   forEachExport,
+  getExport,
   getValueSource,
   waitForExport,
 } from './webpack'
@@ -31,21 +32,6 @@ function isReact(exp: any): exp is typeof import('react') {
   )
 }
 
-function isReactDOM(exp: any): exp is typeof import('react-dom') {
-  return (
-    exp && typeof exp === 'object' && 'render' in exp && 'createPortal' in exp
-  )
-}
-
-function isReactDOMClient(exp: any): exp is typeof import('react-dom/client') {
-  return (
-    exp &&
-    typeof exp === 'object' &&
-    'createRoot' in exp &&
-    'hydrateRoot' in exp
-  )
-}
-
 function isJsxRuntime(exp: any): boolean {
   return !!(
     exp &&
@@ -55,22 +41,6 @@ function isJsxRuntime(exp: any): boolean {
     exp.Fragment
   )
 }
-
-// ReactDOM Promises
-
-export const reactDOMPromise: Promise<typeof import('react-dom')> =
-  (async () => {
-    const ReactDOM = await waitForExport(isReactDOM)
-    global.ReactDOM = ReactDOM
-    return ReactDOM
-  })()
-
-export const reactDOMClientPromise: Promise<typeof import('react-dom/client')> =
-  (async () => {
-    const ReactDOMClient = await waitForExport(isReactDOMClient)
-    global.ReactDOMClient = ReactDOMClient
-    return ReactDOMClient
-  })()
 
 // Component Finding
 // If using this outside of a plugin, ensure your desired component has loaded first
@@ -105,32 +75,71 @@ function componentFilter(name: string, filter?: filter) {
   return func
 }
 
-export const findComponentPromise = (async () => {
-  const findExport = await findExportPromise
-  function findComponent<P extends {}>(
-    name: string,
-    all?: false,
-    filter?: filter
-  ): React.ComponentType<P>
-  function findComponent<P extends {}>(
-    name: string,
-    all: true,
-    filter?: filter
-  ): React.ComponentType<P>[]
-  function findComponent(name: string, all = false, filter?: filter) {
-    const func = componentFilter(name, filter)
+// Only used for console warnings if an element doesn't load
+const MISSING_MS = 30_000
 
-    if (all) {
-      return findExport(func, true)
-    } else {
-      const result = findExport(func)
-      if (!result) throw new Error(`[Taut] Could not find component: ${name}`)
-      return result
+/** Renders nothing until the component turns up, then renders it from then on */
+export function lazyComponent<P extends {}>(
+  name: string,
+  filter?: filter
+): React.ComponentType<P> {
+  const match = componentFilter(name, filter)
+  const component = new Store<React.ComponentType<P> | undefined>(undefined)
+  let looked = false
+
+  const look = () => {
+    if (looked) return
+    looked = true
+    const loaded = getExport<React.ComponentType<P>>(match)
+    if (loaded) {
+      component.set(loaded)
+      return
     }
+    void waitForExport<React.ComponentType<P>>(match).then(component.set)
+    setTimeout(() => {
+      if (!component.get()) console.error(`[Taut] "${name}" is unavailable`)
+    }, MISSING_MS)
   }
-  global.findComponent = findComponent
-  return findComponent
-})()
+
+  function LazyComponent(props: P) {
+    // resolving on the first render keeps an already-loaded component from flashing
+    look()
+    const Component = component.use()
+    return Component ? <Component {...props} /> : null
+  }
+  LazyComponent.displayName = `Lazy(${name})`
+  return LazyComponent
+}
+
+/** Resolves whenever the component turns up, for use outside a render */
+export function waitForComponent<P extends {}>(
+  name: string,
+  filter?: filter
+): Promise<React.ComponentType<P>> {
+  return waitForExport<React.ComponentType<P>>(componentFilter(name, filter))
+}
+
+/** Throws if the component's chunk hasn't loaded yet */
+export function getComponent<P extends {}>(
+  name: string,
+  all?: false,
+  filter?: filter
+): React.ComponentType<P>
+export function getComponent<P extends {}>(
+  name: string,
+  all: true,
+  filter?: filter
+): React.ComponentType<P>[]
+export function getComponent(name: string, all = false, filter?: filter) {
+  const func = componentFilter(name, filter)
+
+  if (all) return getExport(func, true)
+  const result = getExport(func)
+  if (!result) throw new Error(`[Taut] Could not find component: ${name}`)
+  return result
+}
+global.waitForComponent = waitForComponent
+global.getComponent = getComponent
 
 // slack never exports plenty of components, and connect keeps no
 // WrappedComponent link back, so note what resolveType sees instead
@@ -148,8 +157,8 @@ function rememberRendered(type: any) {
   for (const resolve of waiters) resolve(type)
 }
 
-/** Knows only what has been on screen, unlike findComponent which reads exports (avoid if you can) */
-export function findRenderedComponent(name: string): ComponentType | undefined {
+/** Knows only what has been on screen, unlike getComponent which reads exports (avoid if you can) */
+export function getRenderedComponent(name: string): ComponentType | undefined {
   return renderedComponents.get(name)
 }
 
@@ -171,7 +180,8 @@ export function waitForRenderedComponent(name: string): Promise<ComponentType> {
   })
 }
 
-global.findRenderedComponent = findRenderedComponent
+global.lazyComponent = lazyComponent
+global.getRenderedComponent = getRenderedComponent
 global.waitForRenderedComponent = waitForRenderedComponent
 global.renderedComponents = renderedComponents
 
@@ -468,16 +478,12 @@ function patchComponent<P = object>(
   const component = typeof matcher === 'string' ? undefined : matcher.component
 
   const matcherFunc: componentMatcher = (comp: any) => {
-    if (component && comp === component) {
-      return true
-    }
-    const name = getComponentName(comp)
-    if (name !== displayName) {
+    if (component && comp === component) return true
+    if (displayName === undefined && !filter) return false
+    if (displayName !== undefined && getComponentName(comp) !== displayName) {
       return false
     }
-    if (filter && !filter(comp)) {
-      return false
-    }
+    if (filter && !filter(comp)) return false
     return true
   }
 

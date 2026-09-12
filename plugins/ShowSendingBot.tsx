@@ -400,41 +400,38 @@ export default class ShowSendingBot extends TautPlugin {
       }
     )
 
-    // the row's two columns come from one anonymous memo, matched by identity
-    const Gutter = this.api.findExport(
-      (exp: any) =>
-        exp?.$$typeof === Symbol.for('react.memo') &&
-        typeof exp.type === 'function' &&
-        // TODO: is this laggy? stringifying every memo in slack to match a substr
-        String(exp.type).includes('c-message_kit__gutter__left')
+    // the row's two columns come from one anonymous memo, so match its source
+    this.api.patchComponent<GutterProps>(
+      {
+        filter: (exp: any) =>
+          exp?.$$typeof === Symbol.for('react.memo') &&
+          typeof exp.type === 'function' &&
+          String(exp.type).includes('c-message_kit__gutter__left'),
+      },
+      (Original) => (props) => {
+        const msg = React.useContext(this.SenderContext)
+        const sender = this.useSender(msg)
+        const slot = isCompactGutter(props.compact)
+          ? 'compact'
+          : isCompactGutter(props.light)
+            ? 'light'
+            : null
+        if (!sender || !slot) return <Original {...props} />
+        return (
+          <Original
+            {...props}
+            {...{
+              [slot]: (
+                <>
+                  {props[slot]}
+                  <this.Badge {...sender} size={18} corner="gutter" />
+                </>
+              ),
+            }}
+          />
+        )
+      }
     )
-    if (Gutter)
-      this.api.patchComponent<GutterProps>(
-        { component: Gutter },
-        (Original) => (props) => {
-          const msg = React.useContext(this.SenderContext)
-          const sender = this.useSender(msg)
-          const slot = isCompactGutter(props.compact)
-            ? 'compact'
-            : isCompactGutter(props.light)
-              ? 'light'
-              : null
-          if (!sender || !slot) return <Original {...props} />
-          return (
-            <Original
-              {...props}
-              {...{
-                [slot]: (
-                  <>
-                    {props[slot]}
-                    <this.Badge {...sender} size={18} corner="gutter" />
-                  </>
-                ),
-              }}
-            />
-          )
-        }
-      )
 
     this.api.patchComponent<{ msg?: SlackMessage }>(
       'ThreadSenderAndTimestampGeneric',

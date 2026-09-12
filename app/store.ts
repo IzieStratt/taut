@@ -1,4 +1,4 @@
-// Minimal reactive store for plugin-owned state read inside patched components
+// Minimal reactive store for state read inside a React render
 
 export class Store<T> {
   private value: T
