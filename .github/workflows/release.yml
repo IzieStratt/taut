@@ -144,7 +144,7 @@ jobs:
         include:
           - os: ubuntu-24.04-arm
             platforms: linux linux-arm
-          - os: ubuntu-latest
+          - os: macos-latest
             platforms: win win-arm
           - os: macos-latest
             platforms: mac mac-x64
@@ -169,7 +169,7 @@ jobs:
         run: npm run build:natives
 
       - name: Check for signing credentials
-        if: runner.os == 'macOS'
+        if: contains(matrix.platforms, 'mac')
         id: signing
         env:
           MAC_CERT_P12: ${{ secrets.MAC_CERT_P12 }}
