@@ -10,3 +10,4 @@ desktop/build/
 bun.lock
 desktop/native/
 desktop/sounds/
+.env

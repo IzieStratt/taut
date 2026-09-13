@@ -1,6 +1,5 @@
 // Builds and packages the Taut desktop app with electron-builder
 
-import { execFileSync } from 'node:child_process'
 import { access, cp, mkdir, rename, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import {
@@ -19,20 +18,31 @@ import {
   variantSuffix,
 } from '../lib/artifacts.ts'
 import { commandExists } from '../lib/fs.ts'
+import {
+  AD_HOC,
+  notarizeDmg,
+  resolveMacIdentity,
+  resolveNotarytoolArgs,
+  signingMarker,
+} from '../lib/macSigning.ts'
 import { nativesDir, SLACK_NATIVE_MODULES } from '../lib/natives.ts'
 import { renderOptions } from '../lib/options.ts'
 import { ASSETS, DESKTOP, DIST, TAUT_DEBUG_JS } from '../lib/paths.ts'
 import { ensureSlackSounds } from '../lib/slackSounds.ts'
 import { versions } from '../lib/versions.ts'
 
+const APP_ID = 'app.jer.taut'
 const SRC = path.join(DESKTOP, 'src')
 const OUT = path.join(DIST, 'desktop')
 const BUILD_ROOT = path.join(DESKTOP, 'build')
 const STAGE = path.join(BUILD_ROOT, 'app')
 const ICON = path.join(ASSETS, 'logo.png')
 const MAC_ICON = path.join(ASSETS, 'logo-macos.png')
-
-const MAC_SIGN_IDENTITY = 'Taut Code Signing'
+const MAC_ENTITLEMENTS = path.join(DESKTOP, 'entitlements.mac.plist')
+const MAC_ENTITLEMENTS_INHERIT = path.join(
+  DESKTOP,
+  'entitlements.mac.inherit.plist'
+)
 
 const ELECTRON_PLATFORMS = {
   mac: Platform.MAC,
@@ -43,30 +53,19 @@ const ELECTRON_ARCHES = { x64: Arch.x64, arm64: Arch.arm64 }
 
 const INSTALLER_EXT = new RegExp(`\\.(${INSTALLER_EXTENSIONS.join('|')})$`, 'i')
 
-function resolveMacIdentity(): string | null | undefined {
-  if (process.env.CSC_LINK || process.env.CSC_NAME) return undefined
-  if (process.platform !== 'darwin') return null
-  try {
-    const out = execFileSync(
-      'security',
-      ['find-identity', '-v', '-p', 'codesigning'],
-      { encoding: 'utf8' }
-    )
-    if (out.includes(MAC_SIGN_IDENTITY)) return MAC_SIGN_IDENTITY
-  } catch {
-    // `security` unavailable or no identities; fall through to skip signing
-  }
-  return null
-}
-
 // Stage the variant's compiled JS into desktop/build/app/
 
-export async function buildDesktopJs(variant: Variant) {
+export async function buildDesktopJs(
+  variant: Variant,
+  macIdentity = resolveMacIdentity()
+) {
   const isEmbedded = variant === 'embedded'
   const define = {
     __TAUT_EMBEDDED__: String(isEmbedded),
     __TAUT_LOADER_VERSION__: JSON.stringify(versions.desktop),
     __TAUT_SLACK_VERSION__: JSON.stringify(versions.slack),
+    __TAUT_APP_ID__: JSON.stringify(APP_ID),
+    __TAUT_MAC_SIGNING__: JSON.stringify(signingMarker(macIdentity)),
   }
 
   await rm(STAGE, { recursive: true, force: true })
@@ -127,14 +126,13 @@ async function assertNatives(key: PlatformKey) {
 function makeConfig(
   variant: Variant,
   key: PlatformKey,
-  macIdentity: string | null | undefined,
-  macSounds: string | null
+  mac: { identity: string; notarize: boolean; sounds: string | null }
 ): Configuration {
   const isEmbedded = variant === 'embedded'
   const suffix = variantSuffix(variant)
 
   return {
-    appId: 'app.jer.taut',
+    appId: APP_ID,
     productName: 'Taut',
     electronVersion: versions.electron,
     asar: true,
@@ -161,10 +159,10 @@ function makeConfig(
       ...(needsNatives(key)
         ? [{ from: path.relative(DESKTOP, nativesDir(key)), to: 'native' }]
         : []),
-      ...(macSounds
+      ...(mac.sounds
         ? [
             {
-              from: path.relative(DESKTOP, macSounds),
+              from: path.relative(DESKTOP, mac.sounds),
               to: '.',
               filter: ['*.mp3'],
             },
@@ -176,10 +174,26 @@ function makeConfig(
     mac: {
       icon: MAC_ICON,
       category: 'public.app-category.productivity',
-      identity: macIdentity,
-      hardenedRuntime: false,
+      identity: mac.identity,
+      forceCodeSigning: true,
+      hardenedRuntime: true,
       gatekeeperAssess: false,
+      entitlements: MAC_ENTITLEMENTS,
+      entitlementsInherit: MAC_ENTITLEMENTS_INHERIT,
+      notarize: mac.notarize,
+      extendInfo: {
+        NSCameraUsageDescription:
+          'This app requires camera access to make video calls from your Slack workspaces.',
+        NSMicrophoneUsageDescription:
+          'This app requires microphone access to make video calls from your Slack workspaces.',
+        NSAudioCaptureUsageDescription:
+          'This app needs access to audio capture',
+        NSBluetoothAlwaysUsageDescription: 'This app needs access to Bluetooth',
+        NSDownloadsFolderUsageDescription:
+          'This app saves downloaded files to your Downloads folder.',
+      },
     },
+    dmg: { sign: true },
     win: { icon: ICON },
     linux: {
       icon: ICON,
@@ -194,7 +208,9 @@ async function packageVariant(variant: Variant, platforms: PlatformKey[]) {
   console.log(
     `[build-desktop] Building ${variant} [${platforms.join(', ')}]...`
   )
-  await buildDesktopJs(variant)
+  const identity = resolveMacIdentity()
+  const notarytool = identity === AD_HOC ? null : resolveNotarytoolArgs()
+  await buildDesktopJs(variant, identity)
 
   await rm(path.join(BUILD_ROOT, 'builder', variant), {
     recursive: true,
@@ -202,20 +218,16 @@ async function packageVariant(variant: Variant, platforms: PlatformKey[]) {
   })
   await mkdir(OUT, { recursive: true })
 
-  const macIdentity = resolveMacIdentity()
-
   for (const key of platforms) {
     const def = DESKTOP_PLATFORMS[key]
     if (needsNatives(key)) await assertNatives(key)
-    const macSounds = def.os === 'mac' ? await ensureSlackSounds() : null
+    const sounds = def.os === 'mac' ? await ensureSlackSounds() : null
     if (def.os === 'mac') {
-      const how =
-        macIdentity === undefined
-          ? 'cert from CSC_LINK/CSC_NAME'
-          : macIdentity
-            ? `identity "${macIdentity}"`
-            : 'UNSIGNED (no cert found; notifications and stuff will not register)'
-      console.log(`[build-desktop] macOS signing: ${how}`)
+      console.log(
+        identity === AD_HOC
+          ? '[build-desktop] macOS signing: ad-hoc'
+          : `[build-desktop] macOS signing: Developer ID "${identity}"${notarytool ? '' : ', NOT notarized (set APPLE_API_KEY, APPLE_API_KEY_ID and APPLE_API_ISSUER, see .env.example)'}`
+      )
     }
     // claude's explanation of this weird workaround:
     // electron-builder picks a per-file 7z filter, and for arm64 that's the
@@ -241,13 +253,19 @@ async function packageVariant(variant: Variant, platforms: PlatformKey[]) {
         ELECTRON_ARCHES[def.arch]
       ),
       publish: 'never',
-      config: makeConfig(variant, key, macIdentity, macSounds),
+      config: makeConfig(variant, key, {
+        identity,
+        notarize: notarytool !== null,
+        sounds,
+      }),
     })
 
     for (const artifact of artifacts) {
       const name = path.basename(artifact)
       if (!INSTALLER_EXT.test(name)) continue
-      await rename(artifact, path.join(OUT, name))
+      const dest = path.join(OUT, name)
+      await rename(artifact, dest)
+      if (notarytool && name.endsWith('.dmg')) notarizeDmg(dest, notarytool)
       console.log(`[build-desktop] dist/desktop/${name}`)
     }
   }

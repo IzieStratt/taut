@@ -9,6 +9,10 @@ import {
   type Variant,
 } from './lib/artifacts.ts'
 
+try {
+  process.loadEnvFile()
+} catch {}
+
 const TARGETS = ['taut', 'extension', 'userscript', 'desktop'] as const
 type Target = (typeof TARGETS)[number]
 

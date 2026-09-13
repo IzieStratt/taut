@@ -20,6 +20,7 @@ function getPrefsPath(): string {
 interface TautPrefs {
   appUrl?: string
   notifPrompted?: boolean
+  signing?: string
 }
 
 let cached: TautPrefs | null = null
@@ -49,4 +50,8 @@ export function getAppUrl(): string {
 
 export function getNotifPrompted(): boolean {
   return cached?.notifPrompted ?? false
+}
+
+export function getSigning(): string | undefined {
+  return cached?.signing
 }

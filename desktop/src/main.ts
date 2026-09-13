@@ -1,6 +1,7 @@
 // Taut Desktop Main Process
 // Orchestrates startup: loads prefs, patches electron, sets up session/bridge, loads Slack
 
+import { execFileSync } from 'node:child_process'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -20,7 +21,13 @@ import { installAppImageDesktopEntry } from './appImage.js'
 import { setupBridge } from './bridge.js'
 import { applyPatches, setOpenOptionsWindow } from './patch.js'
 import { configDir } from './paths.js'
-import { getAppUrl, getNotifPrompted, loadPrefs, savePrefs } from './prefs.js'
+import {
+  getAppUrl,
+  getNotifPrompted,
+  getSigning,
+  loadPrefs,
+  savePrefs,
+} from './prefs.js'
 import { setupSession } from './session.js'
 import {
   cachedSlackAsar,
@@ -33,6 +40,9 @@ import { findInstalledSlackAsar } from './slackFinder.js'
 const cjsRequire = createRequire(import.meta.url)
 
 declare const __TAUT_EMBEDDED__: boolean
+declare const __TAUT_APP_ID__: string
+/** see signingMarker in scripts/lib/macSigning.ts */
+declare const __TAUT_MAC_SIGNING__: string
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -150,7 +160,27 @@ function startSlack(slackAsarPath: string) {
     }
   }
 
+  function resetStaleMacPermissions() {
+    if (process.platform !== 'darwin' || temporary) return
+    const previous = getSigning()
+    if (previous === __TAUT_MAC_SIGNING__) return
+    if (getNotifPrompted()) {
+      console.log(
+        `[Taut] Signature changed (${previous ?? 'unknown'} -> ${__TAUT_MAC_SIGNING__}), resetting macOS permissions`
+      )
+      try {
+        execFileSync('tccutil', ['reset', 'All', __TAUT_APP_ID__], {
+          stdio: 'inherit',
+        })
+      } catch (e: any) {
+        console.error('[Taut] Permission reset failed:', e.message)
+      }
+    }
+    savePrefs({ signing: __TAUT_MAC_SIGNING__ })
+  }
+
   app.whenReady().then(async () => {
+    resetStaleMacPermissions()
     requestNotificationPermission()
     setupSession(realResourcesPath)
 

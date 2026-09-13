@@ -37,12 +37,6 @@ process.stdout.write(`cask "taut" do
 
   app "Taut.app"
 
-  # self-signed, clear the quarantine homebrew applies
-  postflight do
-    system_command "/usr/bin/xattr",
-                   args: ["-dr", "com.apple.quarantine", "#{appdir}/Taut.app"]
-  end
-
   zap trash: [
     "~/Library/Application Support/Taut",
     "~/Library/Preferences/app.jer.taut.plist",
