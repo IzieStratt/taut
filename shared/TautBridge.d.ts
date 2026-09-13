@@ -85,6 +85,7 @@ export type TautBridge = {
     | 'userscript'
   /** Semver version string of this loader (e.g. '1.0.0'). */
   readonly loaderVersion: string
+  readonly embedded?: boolean
 
   /**
    * Monotonic integer version of this loader's bridge API implementation

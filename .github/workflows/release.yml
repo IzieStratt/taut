@@ -12,8 +12,13 @@ jobs:
   check:
     name: Lint & typecheck
     runs-on: ubuntu-latest
+    outputs:
+      taut: ${{ steps.gate.outputs.taut }}
+      desktop: ${{ steps.gate.outputs.desktop }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v5
         with:
           node-version: 24
@@ -21,37 +26,43 @@ jobs:
       - run: npm ci
       - run: npm run check
 
+      - id: gate
+        run: |
+          BEFORE="${{ github.event.before }}"
+          [[ -z "$BEFORE" || "$BEFORE" =~ ^0+$ ]] && BEFORE="HEAD~1"
+          bumped() {
+            [ "${{ github.event_name }}" = "workflow_dispatch" ] ||
+              git log "$BEFORE..HEAD" -- "$@" | grep -q .
+          }
+          taut=$(bumped package.json extension/chrome/manifest.json \
+            extension/firefox/manifest.json userscript/version.json && echo true || echo false)
+          desktop=$(bumped desktop/package.json && echo true || echo false)
+          echo "taut=$taut" >> "$GITHUB_OUTPUT"
+          echo "desktop=$desktop" >> "$GITHUB_OUTPUT"
+          cat "$GITHUB_OUTPUT"
+
   release:
     name: Build & release
     needs: check
+    if: needs.check.outputs.taut == 'true' || needs.check.outputs.desktop == 'true'
     runs-on: ubuntu-latest
     outputs:
-      desktop: ${{ steps.check.outputs.desktop }}
       desktop-tag: ${{ steps.desktop-tag.outputs.tag }}
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      # desktop installers only rebuild when their version is bumped
-      - id: check
-        run: |
-          BEFORE="${{ github.event.before }}"
-          [[ -z "$BEFORE" || "$BEFORE" =~ ^0+$ ]] && BEFORE="HEAD~1"
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || \
-             git log "$BEFORE..HEAD" -- desktop/package.json | grep -q .; then
-            echo "desktop=true" >> $GITHUB_OUTPUT
-          else
-            echo "desktop=false" >> $GITHUB_OUTPUT
-          fi
-
       - uses: actions/setup-node@v5
+        if: needs.check.outputs.taut == 'true'
         with:
           node-version: 24
           cache: npm
       - run: npm ci
+        if: needs.check.outputs.taut == 'true'
 
       - name: Build bundle, extensions and userscript
+        if: needs.check.outputs.taut == 'true'
         run: npm run build
 
       - name: Update rolling releases
@@ -82,6 +93,7 @@ jobs:
           ensure repo "Package repository metadata" repo.md --prerelease
 
       - name: Publish to latest release
+        if: needs.check.outputs.taut == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -92,6 +104,7 @@ jobs:
             dist/extension/*.zip
 
       - name: Sign and publish the Firefox extension
+        if: needs.check.outputs.taut == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
@@ -122,7 +135,7 @@ jobs:
             dist/extension/taut-firefox-updates.json
 
       - name: Create desktop release
-        if: steps.check.outputs.desktop == 'true'
+        if: needs.check.outputs.desktop == 'true'
         id: desktop-tag
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -136,8 +149,8 @@ jobs:
 
   release-desktop:
     name: Desktop (${{ matrix.platforms }})
-    needs: release
-    if: needs.release.outputs.desktop == 'true'
+    needs: [check, release]
+    if: needs.check.outputs.desktop == 'true'
     strategy:
       fail-fast: false
       matrix:

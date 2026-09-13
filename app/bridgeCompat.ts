@@ -116,6 +116,7 @@ export function normalizeBridge(raw: TautBridge): NormalizedBridge {
     loader: raw.loader,
     loaderVersion: raw.loaderVersion,
     bridgeVersion: raw.bridgeVersion,
+    embedded: raw.embedded,
     warnOutdated: call(raw.warnOutdated),
     start: call(raw.start),
     readConfigText: call(raw.readConfigText),

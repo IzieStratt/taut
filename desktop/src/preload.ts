@@ -4,6 +4,7 @@ import type { TautBridge } from '../../shared/TautBridge'
 import type { RpcArgs, RpcMethod, RpcResult, SerialFetchInit } from './rpc'
 
 declare const __TAUT_LOADER_VERSION__: string
+declare const __TAUT_EMBEDDED__: boolean
 
 const { contextBridge, ipcRenderer } = require('electron')
 
@@ -68,6 +69,7 @@ if (isClientPage) {
     loader: 'electron' as const,
     loaderVersion: __TAUT_LOADER_VERSION__,
     bridgeVersion: 3,
+    embedded: __TAUT_EMBEDDED__,
     PATHS: paths,
 
     cookies: {

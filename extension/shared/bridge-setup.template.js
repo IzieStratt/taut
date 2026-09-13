@@ -64,6 +64,7 @@
       ),
     loaderVersion: '__TAUT_LOADER_VERSION__',
     bridgeVersion: 3,
+    embedded: __TAUT_EMBEDDED__,
     PATHS: null,
 
     cookies: {

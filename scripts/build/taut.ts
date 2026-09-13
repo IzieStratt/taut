@@ -63,7 +63,8 @@ async function bundlePlugins(debug: boolean): Promise<Record<string, string>> {
 // Step 2: bundle app/main.ts with plugins inlined
 async function bundleApp(
   plugins: Record<string, string>,
-  debug: boolean
+  debug: boolean,
+  telemetry: boolean
 ): Promise<string> {
   console.log('[build-taut] Bundling app...')
 
@@ -79,6 +80,7 @@ async function bundleApp(
     define: {
       __TAUT_BUNDLED_PLUGINS__: JSON.stringify(plugins),
       __TAUT_VERSION__: JSON.stringify(versions.taut),
+      __TAUT_TELEMETRY__: String(telemetry),
       process: 'undefined',
       'import.meta.url': 'self.location.href',
     },
@@ -94,14 +96,17 @@ async function bundleApp(
 }
 
 /** Build one flavor of the bundle. Throws if any plugin or the app fails to compile. */
-export async function buildTautBundle(debug: boolean) {
+export async function buildTautBundle(
+  debug: boolean,
+  { telemetry = true } = {}
+) {
   const label = debug ? 'debug' : 'production'
   console.log(`[build-taut] Starting ${label} build...`)
 
   const plugins = await bundlePlugins(debug)
   console.log(`[build-taut] ${Object.keys(plugins).length} plugins bundled`)
 
-  let code = await bundleApp(plugins, debug)
+  let code = await bundleApp(plugins, debug, telemetry)
   if (debug) code = rewriteInlineSourcemaps(code)
 
   const outFile = debug ? TAUT_DEBUG_JS : TAUT_JS

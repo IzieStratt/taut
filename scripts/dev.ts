@@ -13,7 +13,7 @@ let currentBuild: Promise<void> | null = null
 async function rebuild() {
   if (currentBuild) return currentBuild
 
-  currentBuild = buildTautBundle(true).catch((err) => {
+  currentBuild = buildTautBundle(true, { telemetry: false }).catch((err) => {
     console.error('[dev] Build failed, watching for changes...', err.message)
   })
 

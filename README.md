@@ -61,10 +61,6 @@ Open `Preferences` > `Taut` for Taut settings:
 
 - Enable or disble plugins
 - Edit plugin config or user CSS
-- (Desktop only) You can also edit config or CSS in the config folder:
-  - Windows: `%APPDATA%\taut`
-  - macOS: `~/Library/Application Support/taut`
-  - Linux: `~/.config/taut`
 - Desktop enables DevTools, press `Ctrl`+`Alt`+`I` or `Cmd`+`Option`+`I`
 
 Change how Taut is loaded:

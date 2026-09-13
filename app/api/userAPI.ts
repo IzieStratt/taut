@@ -1,6 +1,6 @@
 // Calls the Slack Web API as the current user
 
-import { getActiveTeam } from './localConfig'
+import { getActiveTeam } from '../slack/localConfig'
 
 export interface UserAPIOptions {
   rateLimitRetries?: number

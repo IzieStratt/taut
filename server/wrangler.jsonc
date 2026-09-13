@@ -11,5 +11,13 @@
     "enabled": true
   },
   "upload_source_maps": true,
-  "compatibility_flags": ["nodejs_compat"]
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "taut",
+      "database_id": "dd18750f-d463-4690-a6c5-a807ba5819c1",
+      "migrations_dir": "migrations"
+    }
+  ]
 }

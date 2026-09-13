@@ -144,6 +144,7 @@ function insertSnippetIntoPlugins(
 
 export interface TautConfig {
   plugins: Record<string, { enabled: boolean } & Record<string, unknown>>
+  telemetry?: boolean
 }
 
 type Listener<T> = (value: T) => void

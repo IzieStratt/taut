@@ -28,7 +28,7 @@ import {
   getActiveTeam,
   type LocalConfigTeam,
   readLocalConfig,
-} from './localConfig'
+} from '../slack/localConfig'
 
 const SLACK_URL = 'https://app.slack.com'
 const COOKIE_DOMAIN = '.slack.com'

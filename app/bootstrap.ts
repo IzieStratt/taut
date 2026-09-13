@@ -4,6 +4,7 @@
 import { applyPendingSwitch } from './api/accountSwitcher'
 import { setStyle } from './api/css'
 import { installResizeGate } from './api/resize'
+import { Telemetry } from './api/telemetry'
 import type { NormalizedBridge } from './bridgeCompat'
 import { bundledPlugins } from './bundledData'
 import { ConfigStore } from './configStore'
@@ -66,6 +67,7 @@ export async function bootstrap(bridge: NormalizedBridge): Promise<void> {
   }
 
   await addSettingsTab(pluginManager, configStore)
+  new Telemetry(bridge, configStore).start()
 
   console.log('[Taut] Taut initialized')
 }
