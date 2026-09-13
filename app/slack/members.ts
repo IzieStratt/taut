@@ -1,5 +1,6 @@
 // Reads Slack member profiles from the redux store
 
+import { retry } from '../helpers'
 import { reactPromise } from './react'
 import {
   dispatchThunk,
@@ -93,6 +94,28 @@ export function getCurrentMemberId(): string | undefined {
 
 const inFlight = new Map<string, Promise<SlackMember | undefined>>()
 
+let batch: { ids: Set<string>; done: Promise<void> } | undefined
+
+function fetchMembers(userId: string): Promise<void> {
+  if (!batch) {
+    const ids = new Set<string>()
+    const done = new Promise<void>((resolve) => setTimeout(resolve, 5)).then(
+      async () => {
+        batch = undefined
+        try {
+          await dispatchThunk('ensureMembersArePresent', {
+            memberIds: [...ids],
+            reason: 'taut',
+          })
+        } catch {}
+      }
+    )
+    batch = { ids, done }
+  }
+  batch.ids.add(userId)
+  return batch.done
+}
+
 /** Get a member, asking slack to fetch them if the store hasn't got them yet */
 export async function getMember(
   userId: string
@@ -100,22 +123,16 @@ export async function getMember(
   const cached = getCachedMember(userId)
   if (cached) return cached
 
-  // slack's thunk skips only ids already in the store, so it fetches once per
-  // call rather than once per member
   const pending = inFlight.get(userId)
   if (pending) return pending
 
-  const request = (async () => {
-    // resolves once the members are in the store
-    try {
-      await dispatchThunk('ensureMembersArePresent', {
-        memberIds: [userId],
-        reason: 'taut',
-      })
-    } catch {}
-    inFlight.delete(userId)
-    return getCachedMember(userId)
-  })()
+  const request = retry(
+    async () => {
+      await fetchMembers(userId)
+      return getCachedMember(userId)
+    },
+    { tries: 4, baseMs: 3000 }
+  ).finally(() => inFlight.delete(userId))
   inFlight.set(userId, request)
   return request
 }

@@ -19,3 +19,21 @@ export function deepEqual(a: unknown, b: unknown): boolean {
   }
   return true
 }
+
+export const sleep = (ms: number) =>
+  new Promise<void>((resolve) => setTimeout(resolve, ms))
+
+/**
+ * Runs `attempt` until it returns a value, waiting between tries with
+ * exponential backoff and full jitter
+ */
+export async function retry<T>(
+  attempt: () => Promise<T | undefined>,
+  { tries = 3, baseMs = 1000, maxMs = 30_000 } = {}
+): Promise<T | undefined> {
+  for (let i = 0; ; i++) {
+    const result = await attempt()
+    if (result !== undefined || i >= tries - 1) return result
+    await sleep(Math.random() * Math.min(maxMs, baseMs * 2 ** i))
+  }
+}
