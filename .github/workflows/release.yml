@@ -4,6 +4,15 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      taut:
+        description: Rebuild taut.js, the extensions and the userscript
+        type: boolean
+        default: true
+      desktop:
+        description: Rebuild the desktop installers
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -30,13 +39,15 @@ jobs:
         run: |
           BEFORE="${{ github.event.before }}"
           [[ -z "$BEFORE" || "$BEFORE" =~ ^0+$ ]] && BEFORE="HEAD~1"
-          bumped() {
-            [ "${{ github.event_name }}" = "workflow_dispatch" ] ||
-              git log "$BEFORE..HEAD" -- "$@" | grep -q .
-          }
-          taut=$(bumped package.json extension/chrome/manifest.json \
-            extension/firefox/manifest.json userscript/version.json && echo true || echo false)
-          desktop=$(bumped desktop/package.json && echo true || echo false)
+          bumped() { git log "$BEFORE..HEAD" -- "$@" | grep -q .; }
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            taut="${{ inputs.taut }}"
+            desktop="${{ inputs.desktop }}"
+          else
+            taut=$(bumped package.json extension/chrome/manifest.json \
+              extension/firefox/manifest.json userscript/version.json && echo true || echo false)
+            desktop=$(bumped desktop/package.json && echo true || echo false)
+          fi
           echo "taut=$taut" >> "$GITHUB_OUTPUT"
           echo "desktop=$desktop" >> "$GITHUB_OUTPUT"
           cat "$GITHUB_OUTPUT"
