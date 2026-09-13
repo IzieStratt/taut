@@ -29,7 +29,7 @@ const TOOLS = [
     label: 'Open in Slack Admin',
     url: (id: string) =>
       `https://app.slack.com/manage/E09V59WQY1E/people/${encodeURIComponent(id)}`,
-  }
+  },
 ]
 
 export default class AdminBackend extends TautPlugin {
