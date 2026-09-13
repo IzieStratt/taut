@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Taut",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "description": "Client mod for Slack",
   "author": "Jeremy Woolley",
   "homepage_url": "https://taut.jer.app",
@@ -14,7 +14,7 @@
   "browser_specific_settings": {
     "gecko": {
       "id": "taut@jer.app",
-      "strict_min_version": "128.0",
+      "strict_min_version": "134.0",
       "update_url": "https://taut.jer.app/taut-firefox-updates.json",
       "data_collection_permissions": { "required": ["none"] }
     }
