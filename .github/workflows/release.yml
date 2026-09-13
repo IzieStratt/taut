@@ -340,7 +340,7 @@ jobs:
           sha="$(gh api "repos/$TAP/contents/Casks/taut.rb" 2>/dev/null | jq -r '.sha // empty')"
           gh api -X PUT "repos/$TAP/contents/Casks/taut.rb" \
             -f message="taut ${TAG#desktop-v}" \
-            -f content="$(base64 -w0 taut.rb)" \
+            -f content="$(base64 < taut.rb | tr -d '\n')" \
             ${sha:+-f sha="$sha"}
 
       - name: Publish repository metadata

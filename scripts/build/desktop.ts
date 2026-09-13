@@ -135,6 +135,7 @@ function makeConfig(
     appId: APP_ID,
     productName: 'Taut',
     electronVersion: versions.electron,
+    toolsets: { wine: '1.0.1' },
     asar: true,
     npmRebuild: false,
     nodeGypRebuild: false,
