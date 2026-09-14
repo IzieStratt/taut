@@ -41,12 +41,12 @@ export async function buildExtension(variants: Variant[]) {
   for (const { browser, loaderName, loaderVersion, zipExt } of BROWSERS) {
     const srcDir = path.join(EXTENSION, browser)
 
-    const bridgeSetup = bridgeTemplate
-      .replace(/__TAUT_LOADER__/g, loaderName)
-      .replace(/__TAUT_LOADER_VERSION__/g, loaderVersion)
-
     for (const variant of variants) {
       const isEmbedded = variant === 'embedded'
+      const bridgeSetup = bridgeTemplate
+        .replace(/__TAUT_LOADER__/g, loaderName)
+        .replace(/__TAUT_LOADER_VERSION__/g, loaderVersion)
+        .replace(/__TAUT_EMBEDDED__/g, String(isEmbedded))
       const suffix = variantSuffix(variant)
       const outDir = path.join(OUT_ROOT, `${browser}${suffix}`)
       const zipFile = path.join(OUT_ROOT, `taut-${browser}${suffix}.${zipExt}`)
