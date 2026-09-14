@@ -37,7 +37,8 @@ const OUT = path.join(DIST, 'desktop')
 const BUILD_ROOT = path.join(DESKTOP, 'build')
 const STAGE = path.join(BUILD_ROOT, 'app')
 const ICON = path.join(ASSETS, 'logo.png')
-const MAC_ICON = path.join(ASSETS, 'logo-macos.png')
+const MAC_ICON = path.join(ASSETS, 'icons', 'mac', 'taut.icns')
+const MAC_ICON_CATALOG = path.join(ASSETS, 'icons', 'mac', 'Assets.car')
 const MAC_ENTITLEMENTS = path.join(DESKTOP, 'entitlements.mac.plist')
 const MAC_ENTITLEMENTS_INHERIT = path.join(
   DESKTOP,
@@ -130,6 +131,7 @@ function makeConfig(
 ): Configuration {
   const isEmbedded = variant === 'embedded'
   const suffix = variantSuffix(variant)
+  const isMac = DESKTOP_PLATFORMS[key].os === 'mac'
 
   return {
     appId: APP_ID,
@@ -159,6 +161,14 @@ function makeConfig(
       ...(needsNatives(key)
         ? [{ from: path.relative(DESKTOP, nativesDir(key)), to: 'native' }]
         : []),
+      ...(isMac
+        ? [
+            {
+              from: path.relative(DESKTOP, MAC_ICON_CATALOG),
+              to: 'Assets.car',
+            },
+          ]
+        : []),
       ...(mac.sounds
         ? [
             {
@@ -182,6 +192,7 @@ function makeConfig(
       entitlementsInherit: MAC_ENTITLEMENTS_INHERIT,
       notarize: mac.notarize,
       extendInfo: {
+        CFBundleIconName: path.basename(MAC_ICON, '.icns'),
         NSCameraUsageDescription:
           'This app requires camera access to make video calls from your Slack workspaces.',
         NSMicrophoneUsageDescription:
