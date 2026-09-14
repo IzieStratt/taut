@@ -24,7 +24,7 @@ export class Store<T> {
     this.target.dispatchEvent(new Event('change'))
   }
 
-  private subscribe = (onChange: () => void) => {
+  subscribe = (onChange: () => void) => {
     this.target.addEventListener('change', onChange)
     return () => this.target.removeEventListener('change', onChange)
   }

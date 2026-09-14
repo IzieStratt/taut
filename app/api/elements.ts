@@ -22,7 +22,7 @@ export type ButtonProps = {
 } & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'type' | 'size'>
 
 export type TooltipProps = {
-  tip: string
+  tip: React.ReactNode
   position?: string
   offsetY?: number
   delay?: number

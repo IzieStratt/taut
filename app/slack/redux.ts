@@ -74,6 +74,24 @@ export function getReduxStore(): SlackStore | null {
   return null
 }
 
+export function subscribeToStore(listener: () => void): () => void {
+  let detach: (() => void) | null = null
+  let attaching: ReturnType<typeof setTimeout> | null = null
+  const attach = () => {
+    attaching = null
+    const store = getReduxStore()
+    if (store) detach = store.subscribe(listener)
+    else attaching = setTimeout(attach, 100)
+  }
+  attach()
+  return () => {
+    if (attaching) clearTimeout(attaching)
+    attaching = null
+    detach?.()
+    detach = null
+  }
+}
+
 /** Slack's state as it is stored, with Taut's read-time transforms left off */
 export function getRawState(): any {
   const getState = getReduxStore()?.getState as
@@ -382,6 +400,7 @@ export const reduxPromise = (async () => {
 
   return {
     getStore: getReduxStore,
+    subscribe: subscribeToStore,
     getRawState,
     useReduxState,
     usePatchVersion,

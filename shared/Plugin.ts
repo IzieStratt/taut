@@ -17,6 +17,7 @@ export type {
 } from '../app/api/elements'
 export type { MenuProps } from '../app/api/menu'
 export type { ModalHandle, OpenModalOptions } from '../app/api/modal'
+export type { SharedStore, SharedStoreHandle } from '../app/api/sharedStore'
 export type { UserAPIOptions } from '../app/api/userAPI'
 export type { TautAPI } from '../app/pluginManager'
 export type { Block, FromDeltaOptions } from '../app/slack/blocks'

@@ -17,6 +17,7 @@ import { setupMessageSendDelta } from './api/messageSend'
 import { dialogHelpersFor, modalAPIPromise } from './api/modal'
 import { ScopedStorage } from './api/pluginStorage'
 import { deferResizeWork } from './api/resize'
+import { bindSharedStore, SharedStore, sharedFrom } from './api/sharedStore'
 import { userAPI } from './api/userAPI'
 import type { NormalizedBridge } from './bridgeCompat'
 import { initJsonc } from './cdn'
@@ -105,6 +106,8 @@ async function makeBaseTautAPI(bridge: NormalizedBridge) {
     onMessageSendDelta: setupMessageSendDelta(patchComponent),
     deferResizeWork,
     Store,
+    SharedStore,
+    sharedFrom,
   }
   global.TautAPI = TautAPI
   console.log('[Taut] Base TautAPI initialized', TautAPI)
@@ -208,6 +211,7 @@ function createScopedAPI(
     patchComponent: tracked(base.patchComponent) as typeof base.patchComponent,
     redux: {
       ...base.redux,
+      subscribe: tracked(base.redux.subscribe),
       patchState: tracked(base.redux.patchState),
       patchSlice: tracked(base.redux.patchSlice),
       patchThunk: tracked(base.redux.patchThunk),
@@ -227,8 +231,13 @@ function createScopedAPI(
       openModal,
       ...dialogHelpersFor(openModal),
     },
+    sharedFrom: <T>(pluginId: string, key: string) => {
+      const handle = base.sharedFrom<T>(pluginId, key)
+      return { ...handle, subscribe: tracked(handle.subscribe) }
+    },
     storage: new ScopedStorage(storageBlob),
     Cache: bindCache(cacheBlob),
+    SharedStore: bindSharedStore(id, scope.track),
   }
 }
 
