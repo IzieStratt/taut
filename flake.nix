@@ -7,10 +7,10 @@
     { self, nixpkgs }:
     let
       # these lines are rewritten by the release workflow after each desktop release
-      version = "3.0.0";
+      version = "3.0.1";
       hashes = {
-        x86_64-linux = "sha256-8Hie1eZH5JC+FfWEnzfkpk8latcuW6F0P+eynXhmVm0=";
-        aarch64-linux = "sha256-magq5PzQroixA8jor81Bk85K4+0ohXMI0LlXFToEsJ4=";
+        x86_64-linux = "sha256-lgh+ds3UCHULB9pV9xGipDGoiIO0XJxXOJQ+V8QB6HI=";
+        aarch64-linux = "sha256-rimJ42MVVmiMcWMR/sVWFcCz5G1TgcmhoqFLg8nEh54=";
       };
 
       appImages = {
