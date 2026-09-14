@@ -24,19 +24,15 @@ type Provider = {
   exceptions: RegExp[]
 }
 
-export default class ClearURLs extends TautPlugin {
+export default class ClearURLs extends TautPlugin<typeof ClearURLs> {
   static readonly id = 'ClearURLs'
   static readonly pluginName = 'Clear URLs'
   static readonly description =
     'Strips tracking parameters from URLs before sending messages (rules from <https://github.com/ClearURLs/Rules|ClearURLs>)'
   static readonly authors = '<@U06UYA5GMB5>, <@U080A3QP42C>'
-  static readonly defaultConfig = `
-    // Strips tracking parameters from URLs before sending messages
-    // Rules sourced from https://github.com/ClearURLs/Rules
-    "ClearURLs": {
-      "enabled": false
-    }
-  `
+  static readonly defaultConfig = {
+    enabled: false,
+  }
 
   private cache = new this.api.Cache<RulesData>('clearurls_rules', {
     ttl: 7 * 24 * 60 * 60 * 1000,

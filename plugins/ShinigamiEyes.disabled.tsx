@@ -1,7 +1,7 @@
 // Shows Hackatime trust level indicators next to user names in Slack
 // Broken because the Hackatime API changed
 
-import { type TautAPI, TautPlugin, type TautPluginConfig } from '$taut'
+import { opt, TautPlugin } from '$taut'
 
 const API_URL = 'https://hackatime.hackclub.com/api/admin/v1/execute'
 
@@ -23,11 +23,6 @@ const TRUST_LEVEL_COLORS_REVERSED = new Map<string, trustLevel>(
   [...TRUST_LEVEL_COLORS.entries()].map(([k, v]) => [v, k])
 )
 
-type ShinigamiConfig = TautPluginConfig & {
-  apiToken?: string
-  nameEmojis?: boolean
-}
-
 type AuditLog = {
   previousTrustLevel?: trustLevel
   newTrustLevel?: trustLevel
@@ -37,24 +32,17 @@ type AuditLog = {
   changedBySlackId?: string
 }
 
-export default class ShinigamiEyes extends TautPlugin {
+export default class ShinigamiEyes extends TautPlugin<typeof ShinigamiEyes> {
   static readonly id = 'ShinigamiEyes'
   static readonly pluginName = 'Shinigami Eyes'
   static readonly description =
     'Displays Hackatime trust level indicators next to user names in Slack'
   static readonly authors = '<@U07VC9705D4>, <@U046VA0KR8R>, <@U06UYA5GMB5>'
-  static readonly defaultConfig = `
-    // Shows an indicator next to every user showing their Hackatime status (Hackatime admins only)
-    "ShinigamiEyes": {
-      "enabled": false,
-      // https://hackatime.hackclub.com/admin/admin_api_keys
-      "apiToken": "",
-      // Show status emoji next to names on messages
-      "nameEmojis": true
-    }
-  `
-
-  config: ShinigamiConfig
+  static readonly defaultConfig = {
+    enabled: false,
+    apiToken: opt('', 'https://hackatime.hackclub.com/admin/admin_api_keys'),
+    nameEmojis: opt(true, 'Show status emoji next to names on messages'),
+  }
 
   trustLevels: Record<string, trustLevel> = {}
 
@@ -62,11 +50,6 @@ export default class ShinigamiEyes extends TautPlugin {
     'shinigami_trust_levels',
     { ttl: 24 * 60 * 60 * 1000 }
   )
-
-  constructor(api: TautAPI, config: TautPluginConfig) {
-    super(api, config)
-    this.config = config as ShinigamiConfig
-  }
 
   start() {
     this.log('Starting')

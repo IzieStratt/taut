@@ -1,34 +1,33 @@
 // Adds a chip to each reaction bar that copies the people who reacted
 
-import { type MenuTemplateItem, TautPlugin } from '$taut'
+import { type MenuTemplateItem, opt, TautPlugin } from '$taut'
 
 type SlackReaction = { name?: string; users?: string[] }
 type ReactionBarProps = { reactions?: SlackReaction[] }
 
 // stable identity, so context consumers don't rerender
 const NO_REACTIONS: SlackReaction[] = []
+type Format = 'mentions' | 'names'
 const SEPARATORS: Record<string, string> = {
   space: ' ',
   newline: '\n',
   comma: ', ',
 }
 
-export default class CopyReacted extends TautPlugin {
+export default class CopyReacted extends TautPlugin<typeof CopyReacted> {
   static readonly id = 'CopyReacted'
   static readonly pluginName = 'Copy Reacted'
   static readonly description =
     'Copy the list of people who reacted to a message'
   static readonly authors = '<@U06UYA5GMB5>, <@U080A3QP42C>'
-  static readonly defaultConfig = `
-    // Copy the list of people who reacted to a message
-    "CopyReacted": {
-      "enabled": false,
-      // "mentions" for <@U123>, or "names" for display names
-      "format": "mentions",
-      // "space", "newline", or "comma"
-      "separator": "space"
-    }
-  `
+  static readonly defaultConfig = {
+    enabled: false,
+    format: opt(
+      'mentions' as Format,
+      '"mentions" for <@U123>, or "names" for display names'
+    ),
+    separator: opt('space', '"space", "newline", or "comma"'),
+  }
 
   private readonly ReactionsContext =
     React.createContext<SlackReaction[]>(NO_REACTIONS)

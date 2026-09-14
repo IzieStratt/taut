@@ -2,16 +2,14 @@
 
 import { type Delta, TautPlugin } from '$taut'
 
-export default class InvisibleForward extends TautPlugin {
+export default class InvisibleForward extends TautPlugin<
+  typeof InvisibleForward
+> {
   static readonly id = 'InvisibleForward'
   static readonly pluginName = 'Invisible Forward'
-  static readonly defaultConfig = `
-    // Makes Slack links at the start of your messages invisible, like a forwarded message that works in threads
-    // Also makes links with a display text of "." at the start of your messages invisible
-    "InvisibleForward": {
-      "enabled": false
-    }
-  `
+  static readonly defaultConfig = {
+    enabled: false,
+  }
   static readonly description =
     "Makes Slack links at the start of your messages invisible, like a forwarded message, based on <@U07FXPUDYDC><https://greasyfork.org/en/scripts/526439-forward-slack-messages-files-and-later-items-to-channels-and-threads-using-an-invisible-link|'s userscript>"
   static readonly authors = '<@U06UYA5GMB5>'

@@ -1,6 +1,6 @@
 // Masks words you'd rather not read in messages, on your screen only
 
-import { type SlackMessage, TautPlugin } from '$taut'
+import { opt, type SlackMessage, TautPlugin } from '$taut'
 
 type Style = 'stars' | 'hashtags' | 'blocks' | 'custom'
 
@@ -45,29 +45,30 @@ function compileTerms(terms: unknown): RegExp | null {
   }
 }
 
-export default class Censorship extends TautPlugin {
+export default class Censorship extends TautPlugin<typeof Censorship> {
   static readonly id = 'Censorship'
   static readonly pluginName = 'Censorship'
   static readonly description =
     'Masks words you choose in messages, only on your screen'
   static readonly authors = '<@U06UYA5GMB5>, <@U080A3QP42C>'
-  static readonly defaultConfig = `
-    // Masks words you choose in messages, only on your screen
-    "Censorship": {
-      "enabled": false,
-      // Whole words or phrases to mask, case-insensitive
-      "terms": ["job", "employment"],
-      // "stars", "hashtags", "blocks", or "custom" to use the replacement below
-      "style": "stars",
-      "replacement": "uwu"
-    }
-  `
+  static readonly defaultConfig = {
+    enabled: false,
+    terms: opt(
+      ['job', 'employment'],
+      'Whole words or phrases to mask, case-insensitive'
+    ),
+    style: opt(
+      'stars' as Style,
+      '"stars", "hashtags", "blocks", or "custom" to use the replacement below'
+    ),
+    replacement: 'uwu',
+  }
 
   private matcher: RegExp | null = null
 
   private mask = (match: string): string => {
-    const style = this.config.style as Style
-    if (style === 'custom') return String(this.config.replacement ?? '')
+    const style = this.config.style
+    if (style === 'custom') return String(this.config.replacement)
     const char = MASK_CHARS[style] ?? MASK_CHARS.stars
     return Array.from(match, (c) => (/\s/.test(c) ? c : char)).join('')
   }

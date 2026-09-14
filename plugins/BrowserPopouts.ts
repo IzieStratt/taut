@@ -2,17 +2,14 @@
 
 import { TautPlugin } from '$taut'
 
-export default class BrowserPopouts extends TautPlugin {
+export default class BrowserPopouts extends TautPlugin<typeof BrowserPopouts> {
   static readonly id = 'BrowserPopouts'
   static readonly pluginName = 'Browser Pop-outs'
   static readonly description = "Enables Slack's pop-out windows in the browser"
   static readonly authors = '<@U06UYA5GMB5>'
-  static readonly defaultConfig = `
-    // Enables Slack's pop-out windows in the browser
-    "BrowserPopouts": {
-      "enabled": true
-    }
-  `
+  static readonly defaultConfig = {
+    enabled: true,
+  }
 
   private originalGet: URLSearchParams['get'] | null = null
 

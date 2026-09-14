@@ -27,17 +27,14 @@ type ExportEntry = {
   history?: Array<{ name?: string }>
 }
 
-export default class PrivateChannel extends TautPlugin {
+export default class PrivateChannel extends TautPlugin<typeof PrivateChannel> {
   static readonly id = 'PrivateChannel'
   static readonly pluginName = 'Private Channel'
   static readonly description =
     "Lets you see and mention private channels you aren't in (uses the <https://flaron.halceon.dev|flaron> index)"
-  static readonly defaultConfig = `
-    // Lets you see and mention private channels you aren't in
-    "PrivateChannel": {
-      "enabled": false
-    }
-  `
+  static readonly defaultConfig = {
+    enabled: false,
+  }
   static readonly authors = '<@U06UYA5GMB5>'
 
   /**

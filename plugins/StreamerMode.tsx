@@ -1,14 +1,6 @@
 // Blurs private information while others may be able to see your screen
 
-import { TautPlugin, type TautPluginConfig } from '$taut'
-
-type StreamerModeConfig = TautPluginConfig & {
-  blur: number
-  shortcut: string
-  hideVip: boolean
-  silenceNotifications: boolean
-  autoOnScreenShare: boolean
-}
+import { opt, TautPlugin } from '$taut'
 
 type Shortcut = {
   code: string
@@ -60,37 +52,31 @@ function matches(event: KeyboardEvent, shortcut: Shortcut): boolean {
   )
 }
 
-export default class StreamerMode extends TautPlugin {
+export default class StreamerMode extends TautPlugin<typeof StreamerMode> {
   static readonly id = 'StreamerMode'
   static readonly pluginName = 'Streamer Mode'
   static readonly description =
     'Blurs private information while others may be able to see your screen'
   static readonly authors = '<@U06UYA5GMB5>, <@U080A3QP42C>, <@U07VC9705D4>'
-  static readonly defaultConfig = `
-    // Blurs private information while others may be able to see your screen
-    "StreamerMode": {
-      "enabled": false,
-      // 4px shows the shape but isn't readable
-      "blur": 4,
-      // "" for off, "mod" is Ctrl (Cmd on mac), and a modifier is required
-      "shortcut": "mod+shift+p",
-      "hideVip": true,
-      "silenceNotifications": true,
-      "autoOnScreenShare": true
-    }
-  `
+  static readonly defaultConfig = {
+    enabled: false,
+    blur: opt(4, "4px shows the shape but isn't readable"),
+    shortcut: opt(
+      'mod+shift+p',
+      '"" for off, "mod" is Ctrl (Cmd on mac), and a modifier is required'
+    ),
+    hideVip: true,
+    silenceNotifications: true,
+    autoOnScreenShare: true,
+  }
 
-  private get options(): StreamerModeConfig {
-    const config = this.config as Partial<StreamerModeConfig>
+  private get options() {
+    const { blur, shortcut } = this.config
     return {
-      ...config,
-      blur:
-        typeof config.blur === 'number' && config.blur > 0 ? config.blur : 4,
-      shortcut: typeof config.shortcut === 'string' ? config.shortcut : '',
-      hideVip: config.hideVip !== false,
-      silenceNotifications: config.silenceNotifications !== false,
-      autoOnScreenShare: config.autoOnScreenShare !== false,
-    } as StreamerModeConfig
+      ...this.config,
+      blur: typeof blur === 'number' && blur > 0 ? blur : 4,
+      shortcut: typeof shortcut === 'string' ? shortcut : '',
+    }
   }
 
   private active = new this.api.SharedStore<boolean>(

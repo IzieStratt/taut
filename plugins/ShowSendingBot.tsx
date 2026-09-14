@@ -62,18 +62,15 @@ const withoutMcpFooter = (msg: SlackMessage): SlackMessage => {
   return next
 }
 
-export default class ShowSendingBot extends TautPlugin {
+export default class ShowSendingBot extends TautPlugin<typeof ShowSendingBot> {
   static readonly id = 'ShowSendingBot'
   static readonly pluginName = 'Show Sending Bot'
   static readonly description = 'Shows the bot used to send a user message'
   static readonly authors = '<@U06UYA5GMB5>'
-  static readonly defaultConfig = `
-    // Shows the bot used to send a user message
-    "ShowSendingBot": {
-      "enabled": true,
-      "hideMcpFooter": true
-    }
-  `
+  static readonly defaultConfig = {
+    enabled: true,
+    hideMcpFooter: true,
+  }
 
   /** the app that posted a message, keyed "channel:ts"; null once we know of none */
   private apps = new this.api.Cache<string | null>('message_apps', {

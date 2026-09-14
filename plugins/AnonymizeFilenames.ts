@@ -21,18 +21,17 @@ function fileExtension(name: string): string {
   return dot > 0 ? base.slice(dot) : ''
 }
 
-export default class AnonymizeFileNames extends TautPlugin {
+export default class AnonymizeFileNames extends TautPlugin<
+  typeof AnonymizeFileNames
+> {
   static readonly id = 'AnonymizeFilenames'
   static readonly pluginName = 'Anonymize Filenames'
   static readonly description =
     'Randomizes file names before uploading to prevent metadata leakage'
   static readonly authors = '<@U06UYA5GMB5>, <@U080A3QP42C>'
-  static readonly defaultConfig = `
-    // Randomizes file names before uploading to prevent metadata leakage
-    "AnonymizeFilenames": {
-      "enabled": false
-    }
-  `
+  static readonly defaultConfig = {
+    enabled: false,
+  }
 
   private originalDescriptor: PropertyDescriptor | null = null
   private cache = new WeakMap<File, string>()

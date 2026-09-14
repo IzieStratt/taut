@@ -23,17 +23,16 @@ function orgKey(account: StoredAccount): string {
   return typeof enterpriseId === 'string' ? enterpriseId : account.teamId
 }
 
-export default class AccountSwitcher extends TautPlugin {
+export default class AccountSwitcher extends TautPlugin<
+  typeof AccountSwitcher
+> {
   static readonly id = 'AccountSwitcher'
   static readonly pluginName = 'Account Switcher'
   static readonly description =
     'Switch between saved accounts from the profile menu'
-  static readonly defaultConfig = `
-    // Switch between saved accounts from the profile menu
-    "AccountSwitcher": {
-      "enabled": true
-    }
-  `
+  static readonly defaultConfig = {
+    enabled: true,
+  }
   static readonly authors = '<@U06UYA5GMB5>'
 
   private accountsStore = new this.api.Store<StoredAccount[]>([])

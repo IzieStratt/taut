@@ -43,18 +43,15 @@ const isTimestamp = (child: React.ReactNode) =>
 const isSender = (child: React.ReactNode) =>
   isHeaderChild(child, 'isInteractive')
 
-export default class UserPronouns extends TautPlugin {
+export default class UserPronouns extends TautPlugin<typeof UserPronouns> {
   static readonly id = 'UserPronouns'
   static readonly pluginName = 'User Pronouns'
   static readonly description =
     "Shows people's pronouns next to the timestamp on their messages"
   static readonly authors = '<@U06UYA5GMB5>'
-  static readonly defaultConfig = `
-    // Shows people's pronouns next to the timestamp on their messages
-    "UserPronouns": {
-      "enabled": true
-    }
-  `
+  static readonly defaultConfig = {
+    enabled: true,
+  }
 
   private readonly Pronouns = ({
     userId,

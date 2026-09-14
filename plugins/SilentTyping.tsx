@@ -2,18 +2,15 @@
 
 import { TautPlugin } from '$taut'
 
-export default class SilentTyping extends TautPlugin {
+export default class SilentTyping extends TautPlugin<typeof SilentTyping> {
   static readonly id = 'SilentTyping'
   static readonly pluginName = 'Silent Typing'
   static readonly description =
     "Adds a button to suppress typing indicators so others can't see when you're typing"
   static readonly authors = '<@U06UYA5GMB5>, <@U080A3QP42C>, <@U01D9DWGEB0>'
-  static readonly defaultConfig = `
-    // Adds a button to suppress typing indicators so others can't see when you're typing
-    "SilentTyping": {
-      "enabled": false
-    }
-  `
+  static readonly defaultConfig = {
+    enabled: false,
+  }
 
   private static readonly STORAGE_KEY = 'taut_silent_typing_suppressed'
   private suppressed = false

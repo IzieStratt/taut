@@ -1,7 +1,7 @@
 // Adds a little cat that chases your cursor around the screen
 // Based on oneko.js by @adryd325 (https://github.com/adryd325/oneko.js)
 
-import { type TautAPI, TautPlugin, type TautPluginConfig } from '$taut'
+import { type PluginConfig, type TautAPI, TautPlugin } from '$taut'
 
 const NEKO_FILE =
   'https://raw.githubusercontent.com/adryd325/oneko.js/46b0684f29694eaf3252835003f4d9d0258556e5/oneko.gif'
@@ -84,26 +84,17 @@ type OnekoState = {
   bgPos: string
 }
 
-type OnekoConfig = TautPluginConfig & {
-  speed: number
-}
-
-export default class Oneko extends TautPlugin {
+export default class Oneko extends TautPlugin<typeof Oneko> {
   static readonly id = 'Oneko'
   static readonly pluginName = 'Oneko'
   static readonly description =
     'A cute cat that chases your cursor around the screen, based on <https://github.com/adryd325/oneko.js|oneko.js>'
   static readonly authors =
     '<https://github.com/adryd325|@adryd325>, <@U06UYA5GMB5>'
-  static readonly defaultConfig = `
-    // Adds a little cat that chases your cursor around the screen
-    "Oneko": {
-      "enabled": false,
-      "speed": 10
-    }
-  `
-
-  config: OnekoConfig
+  static readonly defaultConfig = {
+    enabled: false,
+    speed: 10,
+  }
 
   nekoEl: HTMLDivElement | null = null
   animationFrameId: number | null = null
@@ -124,12 +115,8 @@ export default class Oneko extends TautPlugin {
   boundHandleBeforeUnload: () => void
   boundOnAnimationFrame: (timestamp: number) => void
 
-  constructor(api: TautAPI, config: TautPluginConfig) {
+  constructor(api: TautAPI, config: PluginConfig<typeof Oneko>) {
     super(api, config)
-    this.config = {
-      speed: 10,
-      ...config,
-    } as OnekoConfig
     this.boundHandleMouseMove = this.handleMouseMove.bind(this)
     this.boundHandleBeforeUnload = this.saveState.bind(this)
     this.boundOnAnimationFrame = this.onAnimationFrame.bind(this)

@@ -16,19 +16,16 @@ const TOP_NAV_CSS = `
   }
 `
 
-export default class FasterSlack extends TautPlugin {
+export default class FasterSlack extends TautPlugin<typeof FasterSlack> {
   static readonly id = 'FasterSlack'
   static readonly pluginName = 'Faster Slack'
   static readonly description =
     'Optimizations that make Slack faster and smoother'
   static readonly authors = '<@U06UYA5GMB5>'
-  static readonly defaultConfig = `
-    // Optimizations that make Slack faster and smoother
-    "FasterSlack": {
-      "enabled": true,
-      "optimizeResize": true
-    }
-  `
+  static readonly defaultConfig = {
+    enabled: true,
+    optimizeResize: true,
+  }
 
   /** [window width, the basis slack settled on], most recent last */
   private samples: [number, number][] = []

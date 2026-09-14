@@ -3,6 +3,7 @@
 // Loads and manages plugins via TautBridge
 
 import {
+  opt,
   TautPlugin,
   type TautPluginConfig,
   type TautPluginConstructor,
@@ -20,9 +21,9 @@ import { deferResizeWork } from './api/resize'
 import { bindSharedStore, SharedStore, sharedFrom } from './api/sharedStore'
 import { userAPI } from './api/userAPI'
 import type { NormalizedBridge } from './bridgeCompat'
-import { initJsonc } from './cdn'
 import type { ConfigStore } from './configStore'
 import { deepEqual } from './helpers'
+import { unwrapDefaults, validateDefaultConfig } from './pluginConfig'
 import { blocksPromise } from './slack/blocks'
 import { channelsPromise } from './slack/channels'
 import { filesPromise } from './slack/files'
@@ -71,6 +72,7 @@ function withLifecycleTimeout<T>(
 
 const global = globalThis as any
 global.TautPlugin = TautPlugin
+global.TautOpt = opt
 
 async function makeBaseTautAPI(bridge: NormalizedBridge) {
   const patchComponent = await patchComponentPromise
@@ -473,26 +475,12 @@ export class PluginManager {
       )
     }
 
-    const snippet = PluginClass.defaultConfig
-    if (typeof snippet === 'string' && snippet.trim()) {
-      const jsonc = await initJsonc()
-      let parsed: unknown = null
-      try {
-        parsed = jsonc.parse(`{${snippet}}`, undefined, {
-          allowTrailingComma: true,
-        })
-      } catch {
-        parsed = null
-      }
-      const configKey =
-        parsed && typeof parsed === 'object'
-          ? Object.keys(parsed as Record<string, unknown>)[0]
-          : undefined
-      if (configKey !== id) {
-        throw new Error(
-          `Plugin id "${id}" does not match its defaultConfig key "${configKey ?? '(none)'}"`
-        )
-      }
+    try {
+      validateDefaultConfig(PluginClass.defaultConfig)
+    } catch (err) {
+      throw new Error(
+        `Plugin ${id}: ${err instanceof Error ? err.message : String(err)}`
+      )
     }
 
     return { id, PluginClass }
@@ -517,10 +505,19 @@ export class PluginManager {
     code: string,
     source: PluginSource
   ): Promise<void> {
-    await this.configStore.ensurePluginConfig(id, PluginClass.defaultConfig)
-    const config = this.configStore.getConfig().plugins[id] ?? {
-      enabled: false,
+    try {
+      await this.configStore.ensurePluginConfig(
+        id,
+        PluginClass.defaultConfig,
+        PluginClass.description
+      )
+    } catch (err) {
+      console.error(`[Taut] Could not write defaults for ${id}:`, err)
     }
+    const config = {
+      ...structuredClone(unwrapDefaults(PluginClass.defaultConfig)),
+      ...this.configStore.getConfig().plugins[id],
+    } as TautPluginConfig
 
     const existing = this.plugins.get(id)
     if (existing) {

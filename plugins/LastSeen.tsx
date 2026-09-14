@@ -1,11 +1,6 @@
 // Shows when someone was last seen on their profile
 
-import { type RtmEvent, TautPlugin, type TautPluginConfig } from '$taut'
-
-type LastSeenConfig = TautPluginConfig & {
-  showLastMessage: boolean
-  showObservedPresence: boolean
-}
+import { type RtmEvent, TautPlugin } from '$taut'
 
 type PresenceProps = {
   showText?: boolean
@@ -72,20 +67,17 @@ function ago(at: number): string {
   return 'just now'
 }
 
-export default class LastSeen extends TautPlugin {
+export default class LastSeen extends TautPlugin<typeof LastSeen> {
   static readonly id = 'LastSeen'
   static readonly pluginName = 'Last Seen'
   static readonly description =
     'Shows when someone was last seen on their profile'
   static readonly authors = '<@U06UYA5GMB5>, <@U080A3QP42C>'
-  static readonly defaultConfig = `
-    // Shows when someone was last seen on their profile
-    "LastSeen": {
-      "enabled": false,
-      "showLastMessage": true,
-      "showObservedPresence": true
-    }
-  `
+  static readonly defaultConfig = {
+    enabled: false,
+    showLastMessage: true,
+    showObservedPresence: true,
+  }
 
   /** their last visible message in ms */
   private messages = new this.api.Cache<number | null>('last_message', {
@@ -100,16 +92,12 @@ export default class LastSeen extends TautPlugin {
   >(undefined)
   private scanned = 0
 
-  private get options(): LastSeenConfig {
-    return this.config as LastSeenConfig
-  }
-
   async start() {
     await this.seen.load()
     await this.messages.load()
     if (this.api.signal.aborted) return
 
-    if (this.options.showObservedPresence !== false) {
+    if (this.config.showObservedPresence !== false) {
       for (const [type, who] of Object.entries(ACTIVITY))
         this.api.rtm.on(type, (event) => this.sighting(who(event), when(event)))
       this.readStore()
@@ -210,13 +198,13 @@ export default class LastSeen extends TautPlugin {
       const settle = (message: number | null) => {
         if (!live) return
         const observed =
-          this.options.showObservedPresence === false
+          this.config.showObservedPresence === false
             ? 0
             : (this.seen.get(userId) ?? 0)
         setSeen(Math.max(observed, message ?? 0))
       }
       settle(null)
-      if (this.options.showLastMessage !== false)
+      if (this.config.showLastMessage !== false)
         this.lastMessageOf(userId)
           .then(settle)
           .catch(() => {})

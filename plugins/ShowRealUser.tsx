@@ -39,18 +39,15 @@ const RELAY_BOTS: Record<string, (msg: RelayedMessage) => unknown> = {
   B0AJHVBLHUN: (msg) => msg.metadata?.event_payload?.source_user_id,
 }
 
-export default class ShowRealUser extends TautPlugin {
+export default class ShowRealUser extends TautPlugin<typeof ShowRealUser> {
   static readonly id = 'ShowRealUser'
   static readonly pluginName = 'Show Real User'
   static readonly description =
     'Shows the user who sent a message via a bot like at-channel'
   static readonly authors = '<@U06UYA5GMB5>'
-  static readonly defaultConfig = `
-    // Shows the user who sent a message via a bot like at-channel
-    "ShowRealUser": {
-      "enabled": true
-    }
-  `
+  static readonly defaultConfig = {
+    enabled: true,
+  }
 
   /** key: "channel:ts" -> sender, or null once we know the bot named none */
   private senders = new this.api.Cache<string | null>('relay_senders_v2', {

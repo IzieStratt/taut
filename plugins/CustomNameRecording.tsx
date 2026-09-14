@@ -43,18 +43,17 @@ function peaks(channel: Float32Array, count: number): number[] {
   })
 }
 
-export default class CustomNameRecording extends TautPlugin {
+export default class CustomNameRecording extends TautPlugin<
+  typeof CustomNameRecording
+> {
   static readonly id = 'CustomNameRecording'
   static readonly pluginName = 'Custom Name Recording'
   static readonly description =
     'Uploads an audio file as your name recording, instead of recording one'
   static readonly authors = '<@U06UYA5GMB5>'
-  static readonly defaultConfig = `
-    // Adds an upload button next to the name recorder in your profile
-    "CustomNameRecording": {
-      "enabled": true
-    }
-  `
+  static readonly defaultConfig = {
+    enabled: true,
+  }
 
   start(): void {
     this.api.patchComponent<AudioButtonProps>(

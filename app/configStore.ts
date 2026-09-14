@@ -1,146 +1,22 @@
 // Taut Config Store
 // In-memory store for config.jsonc and user.css with change notifications
-// Uses jsonc-parser for safe JSONC modifications that preserve comments
 
+import type { DefaultConfig } from '../shared/Plugin'
 import type { TautBridge } from '../shared/TautBridge'
 import { defaultUserCss, emptyConfig } from './bundledData'
-import { initJsonc, type JsoncNode, type JsoncParser } from './cdn'
-
-function processSnippet(raw: string): string {
-  const lines = raw.split('\n')
-  let start = 0
-  let end = lines.length - 1
-  while (start <= end && !lines[start].trim()) start++
-  while (end >= start && !lines[end].trim()) end--
-  const trimmed = lines.slice(start, end + 1)
-  const minIndent = trimmed.reduce((min, line) => {
-    if (!line.trim()) return min
-    return Math.min(min, (line.match(/^( *)/)?.[1] ?? '').length)
-  }, Infinity)
-  const dedent = Number.isFinite(minIndent) ? minIndent : 0
-  return trimmed.map((line) => line.slice(dedent)).join('\n')
-}
-
-function lineLeadingSpaces(text: string, pos: number): string {
-  const lineStart = text.lastIndexOf('\n', pos - 1) + 1
-  return text.slice(lineStart, pos).match(/^( *)/)?.[1] ?? ''
-}
-
-function detectIndent(configText: string, objectNode: JsoncNode): string {
-  const children: JsoncNode[] = objectNode.children ?? []
-  if (children.length > 0) {
-    return lineLeadingSpaces(configText, children[0].offset)
-  }
-  const closingPos: number = objectNode.offset + objectNode.length - 1
-  // Closing } is on the same line as { (e.g. "plugins": {})
-  const objectLineIndent = lineLeadingSpaces(configText, objectNode.offset)
-  if (
-    !/^\s*$/.test(
-      configText.slice(
-        configText.lastIndexOf('\n', closingPos - 1) + 1,
-        closingPos
-      )
-    )
-  ) {
-    return `${objectLineIndent}  `
-  }
-  return `${lineLeadingSpaces(configText, closingPos)}  `
-}
-
-function insertSnippetIntoPlugins(
-  jsonc: JsoncParser,
-  configText: string,
-  snippet: string
-): string {
-  const tree = jsonc.parseTree(configText, undefined, {
-    allowTrailingComma: true,
-  })
-  if (!tree) return configText
-
-  const pluginsNode = jsonc.findNodeAtLocation(tree, ['plugins'])
-  if (pluginsNode?.type !== 'object') return configText
-
-  const indent = detectIndent(configText, pluginsNode)
-  // Re-scale snippet indentation from its own unit to the config's unit.
-  const pluginsKeyIndent = lineLeadingSpaces(configText, pluginsNode.offset)
-  const configUnit = indent.length - pluginsKeyIndent.length || 2
-  const snippetLines = snippet.split('\n')
-  const snippetUnit = snippetLines.reduce((min, line) => {
-    const spaces = line.match(/^( +)/)
-    return spaces ? Math.min(min, spaces[1].length) : min
-  }, Infinity)
-  const effectiveSnippetUnit = Number.isFinite(snippetUnit)
-    ? snippetUnit
-    : configUnit
-  const indented = snippetLines
-    .map((line) => {
-      if (!line.trim()) return ''
-      const spaces = (line.match(/^( *)/)?.[1] ?? '').length
-      const level = Math.round(spaces / effectiveSnippetUnit)
-      return indent + ' '.repeat(level * configUnit) + line.trimStart()
-    })
-    .join('\n')
-
-  const closingBracePos: number = pluginsNode.offset + pluginsNode.length - 1
-
-  // If } is on its own line, split before that line and restore its indent.
-  // If } shares a line with { (e.g. "plugins": {}), insert right before }
-  // and use the plugins key's line indent to reconstruct the closing line.
-  const closingLineStart = configText.lastIndexOf('\n', closingBracePos - 1)
-  const rawClosingLine =
-    closingLineStart >= 0
-      ? configText.slice(closingLineStart + 1, closingBracePos)
-      : ''
-  const closingLineIsOwn = /^\s*$/.test(rawClosingLine)
-  const splitAt = closingLineIsOwn ? closingLineStart : closingBracePos
-  const closingLineIndent = closingLineIsOwn ? rawClosingLine : pluginsKeyIndent
-
-  const children: JsoncNode[] = pluginsNode.children ?? []
-
-  if (children.length === 0) {
-    return (
-      configText.slice(0, splitAt) +
-      '\n' +
-      indented +
-      '\n' +
-      closingLineIndent +
-      configText.slice(closingBracePos)
-    )
-  }
-
-  const lastChild = children[children.length - 1]
-  const afterLastPos: number = lastChild.offset + lastChild.length
-  const between = configText.slice(afterLastPos, closingBracePos)
-  const hasTrailingComma = /,/.test(
-    between.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '')
-  )
-
-  // When the original had a trailing comma, preserve that style on the new entry too.
-  const trailingComma = hasTrailingComma ? ',' : ''
-
-  if (hasTrailingComma) {
-    return (
-      configText.slice(0, splitAt) +
-      '\n' +
-      indented +
-      trailingComma +
-      '\n' +
-      closingLineIndent +
-      configText.slice(closingBracePos)
-    )
-  }
-
-  return (
-    configText.slice(0, afterLastPos) +
-    ',' +
-    configText.slice(afterLastPos, splitAt) +
-    '\n' +
-    indented +
-    '\n' +
-    closingLineIndent +
-    configText.slice(closingBracePos)
-  )
-}
+import { initJsonc, type JsoncParser } from './cdn'
+import {
+  addPluginDefaults,
+  appendEntries,
+  checkPluginEdit,
+  detectLayout,
+  renderEntries,
+} from './configEdit'
+import {
+  defaultEntries,
+  descriptionLines,
+  unwrapDefaults,
+} from './pluginConfig'
 
 export interface TautConfig {
   plugins: Record<string, { enabled: boolean } & Record<string, unknown>>
@@ -252,39 +128,87 @@ export class ConfigStore {
     pluginName: string,
     enabled: boolean
   ): Promise<boolean> {
-    const edits = this.jsonc.modify(
-      this.configText,
-      ['plugins', pluginName, 'enabled'],
-      enabled,
-      {
-        formattingOptions: { tabSize: 2, insertSpaces: true },
-      }
-    )
-    const newText = this.jsonc.applyEdits(this.configText, edits)
+    const text = this.configText
+    const tree = this.jsonc.parseTree(text, [], { allowTrailingComma: true })
+    const block = tree
+      ? this.jsonc.findNodeAtLocation(tree, ['plugins', pluginName])
+      : undefined
+    const hasEnabled =
+      block?.type === 'object' &&
+      (block.children ?? []).some((p) => p.children?.[0]?.value === 'enabled')
+    let newText: string
+    if (block?.type === 'object' && !hasEnabled) {
+      // jsonc.modify would land the new property before a same-line comment
+      const layout = detectLayout(text)
+      newText = appendEntries(
+        text,
+        block,
+        renderEntries([{ key: 'enabled', value: enabled }], layout.unit),
+        layout
+      )
+    } else {
+      const edits = this.jsonc.modify(
+        text,
+        ['plugins', pluginName, 'enabled'],
+        enabled,
+        { formattingOptions: { tabSize: 2, insertSpaces: true } }
+      )
+      newText = this.jsonc.applyEdits(text, edits)
+    }
+    const errors: import('jsonc-parser').ParseError[] = []
+    this.jsonc.parseTree(newText, errors, { allowTrailingComma: true })
+    if (
+      errors.length > 0 ||
+      this.parseConfig(newText).plugins[pluginName]?.enabled !== enabled
+    ) {
+      console.error(
+        `[Taut] Refusing to save config: toggling ${pluginName} produced an invalid file`
+      )
+      return false
+    }
     return this.updateConfigText(newText)
   }
 
-  // Inserts a plugin's default JSONC snippet if the plugin has no config entry yet.
-  // Calls are serialized so concurrent plugin loads can't race each other.
+  /**
+   * Add a plugin's block to config.jsonc, or the default options its block is
+   * missing. Never rewrites a file it can't parse, and checks that the edit
+   * changed nothing else before saving. Calls are serialized so concurrent
+   * plugin loads can't race each other.
+   */
   async ensurePluginConfig(
     pluginName: string,
-    snippet: string | undefined
+    defaults: DefaultConfig,
+    description: string
   ): Promise<void> {
-    if (!snippet) return
     const task = async () => {
-      if (this.config.plugins[pluginName] !== undefined) return
-      const processed = processSnippet(snippet)
-      const newText = insertSnippetIntoPlugins(
+      const before = this.configText.trim() ? this.configText : emptyConfig
+      const outcome = addPluginDefaults(
         this.jsonc,
-        this.configText,
-        processed
+        before,
+        pluginName,
+        defaultEntries(defaults),
+        descriptionLines(description)
       )
-      if (newText === this.configText) return
-      const parsed = this.parseConfig(newText)
-      if (parsed.plugins[pluginName] === undefined) {
-        throw new Error('Failed to insert plugin config snippet')
+      if ('unchanged' in outcome) return
+      if ('reason' in outcome) {
+        console.warn(
+          `[Taut] Not writing defaults for ${pluginName}: ${outcome.reason}`
+        )
+        return
       }
-      if (!(await this.updateConfigText(newText))) {
+      const problem = checkPluginEdit(
+        this.jsonc,
+        before,
+        outcome.text,
+        pluginName,
+        unwrapDefaults(defaults)
+      )
+      if (problem) {
+        throw new Error(
+          `Refusing to save config for plugin ${pluginName}: ${problem}`
+        )
+      }
+      if (!(await this.updateConfigText(outcome.text))) {
         throw new Error(`Failed to save config for plugin ${pluginName}`)
       }
     }

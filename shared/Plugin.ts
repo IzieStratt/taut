@@ -35,11 +35,61 @@ export interface TautPluginConfig {
   [key: string]: unknown
 }
 
+export type ConfigValue =
+  | string
+  | number
+  | boolean
+  | null
+  | ConfigValue[]
+  | { [key: string]: ConfigValue }
+
+export class Opt<T> {
+  constructor(
+    readonly value: T,
+    readonly comment: string
+  ) {}
+}
+
+type IsUnion<T, U = T> = T extends U ? ([U] extends [T] ? false : true) : never
+type Widen<T> =
+  IsUnion<T> extends true
+    ? T
+    : T extends string
+      ? string
+      : T extends number
+        ? number
+        : T extends boolean
+          ? boolean
+          : T
+
+export function opt<T extends ConfigValue>(
+  value: T,
+  comment: string
+): Opt<Widen<T>> {
+  return new Opt(value as Widen<T>, comment)
+}
+
+export type DefaultConfig = { enabled: boolean | Opt<boolean> } & Record<
+  string,
+  ConfigValue | Opt<ConfigValue>
+>
+
+type Unwrap<T> = T extends Opt<infer V> ? V : T
+
+export type PluginLike = { defaultConfig: DefaultConfig }
+
+export type PluginConfig<P extends PluginLike> = PluginLike extends P
+  ? TautPluginConfig
+  : {
+      -readonly [K in keyof P['defaultConfig']]: Unwrap<P['defaultConfig'][K]>
+    } & { [key: string]: unknown }
+
 /**
  * Abstract base class that all Taut plugins must extend.
  * Plugins are instantiated in the browser context with access to the TautAPI.
+ * Pass the class back into the type param to infer the type of .config.
  */
-export abstract class TautPlugin {
+export abstract class TautPlugin<P extends PluginLike = PluginLike> {
   /** Must match config key, should match class name & filename */
   static readonly id: string
   /** The display name of the plugin. */
@@ -48,6 +98,8 @@ export abstract class TautPlugin {
   static readonly description: string
   /** The authors of the plugin in mrkdwn format, using <@user_id> syntax. */
   static readonly authors: string
+  /** Config options with defaults. Wrap a value in `opt()` to put a comment above it. */
+  static readonly defaultConfig: DefaultConfig
 
   /**
    * @param api - The TautAPI instance for plugin communication
@@ -55,7 +107,7 @@ export abstract class TautPlugin {
    */
   constructor(
     protected api: TautAPI,
-    protected config: TautPluginConfig
+    protected config: PluginConfig<P>
   ) {}
 
   /**
@@ -93,7 +145,7 @@ export interface TautPluginConstructor {
   readonly pluginName: string
   readonly description: string
   readonly authors: string
-  readonly defaultConfig?: string
+  readonly defaultConfig: DefaultConfig
 }
 
 type DeltaOp = (

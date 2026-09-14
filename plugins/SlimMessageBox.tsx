@@ -1,17 +1,6 @@
 // Simplifies and cleans up the message box
 
-import { TautPlugin, type TautPluginConfig } from '$taut'
-
-type SlimConfig = TautPluginConfig & {
-  oneLineLayout: boolean
-  showFormattingToggle: boolean
-  showEmojiPicker: boolean
-  showMentionButton: boolean
-  showVideoButton: boolean
-  showAudioButton: boolean
-  showSlashButton: boolean
-  showBroadcastCheckbox: boolean
-}
+import { TautPlugin } from '$taut'
 
 type TextyButtonsProps = Record<string, unknown>
 type PrefPayload = { pref?: string; value?: unknown }
@@ -135,25 +124,22 @@ const NO_BROADCAST_CSS = `
   .p-threads_footer__input_container { min-height: 0; }
 `
 
-export default class SlimMessageBox extends TautPlugin {
+export default class SlimMessageBox extends TautPlugin<typeof SlimMessageBox> {
   static readonly id = 'SlimMessageBox'
   static readonly pluginName = 'Slim Message Box'
   static readonly description = 'Simplifies and cleans up the message box'
   static readonly authors = '<@U06UYA5GMB5>, <@U080A3QP42C>'
-  static readonly defaultConfig = `
-    // Simplifies and cleans up the message box
-    "SlimMessageBox": {
-      "enabled": false,
-      "oneLineLayout": true,
-      "showFormattingToggle": true,
-      "showEmojiPicker": true,
-      "showMentionButton": false,
-      "showVideoButton": false,
-      "showAudioButton": true,
-      "showSlashButton": false,
-      "showBroadcastCheckbox": true
-    }
-  `
+  static readonly defaultConfig = {
+    enabled: false,
+    oneLineLayout: true,
+    showFormattingToggle: true,
+    showEmojiPicker: true,
+    showMentionButton: false,
+    showVideoButton: false,
+    showAudioButton: true,
+    showSlashButton: false,
+    showBroadcastCheckbox: true,
+  }
 
   /** what the formatting bar was set to before we swapped ours in */
   private slackFormatting: boolean | undefined
@@ -163,15 +149,10 @@ export default class SlimMessageBox extends TautPlugin {
   /** the read of that value, which anything learning it has to wait behind */
   private recorded: Promise<void> | undefined
 
-  private get options(): SlimConfig {
-    return this.config as SlimConfig
-  }
-
   start(): void {
-    const options = this.options
     // only an explicit false hides one, so a config missing a key keeps its button
     const hidden = Object.keys(BUTTON_PROPS).filter(
-      (option) => options[option] === false
+      (option) => this.config[option] === false
     )
     const off = Object.fromEntries(
       hidden.flatMap((option) =>
@@ -190,7 +171,7 @@ export default class SlimMessageBox extends TautPlugin {
       )
     )
 
-    if (options.showBroadcastCheckbox === false) {
+    if (this.config.showBroadcastCheckbox === false) {
       this.api.patchComponent<InputContainerProps>(
         'InputContainer',
         (Original) => (props) => (
@@ -200,7 +181,7 @@ export default class SlimMessageBox extends TautPlugin {
       this.api.setStyle(NO_BROADCAST_CSS)
     }
 
-    if (options.oneLineLayout !== false)
+    if (this.config.oneLineLayout !== false)
       this.api.setStyle(layoutCss(hidden.length))
 
     void this.separateFormattingBar()

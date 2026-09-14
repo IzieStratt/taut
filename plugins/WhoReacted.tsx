@@ -1,6 +1,6 @@
 // Shows the avatars of everyone who reacted inside each reaction pill
 
-import { TautPlugin } from '$taut'
+import { opt, TautPlugin } from '$taut'
 
 type ReactionProps = { users?: string[] }
 
@@ -12,23 +12,24 @@ const avatarLimit = (value: unknown): number => {
   return Number.isFinite(count) && count > 0 ? Math.min(count, 20) : 4
 }
 
-export default class WhoReacted extends TautPlugin {
+export default class WhoReacted extends TautPlugin<typeof WhoReacted> {
   static readonly id = 'WhoReacted'
   static readonly pluginName = 'Who Reacted'
   static readonly description =
     'Shows the avatars of everyone who reacted next to each reaction'
   static readonly authors = '<@U06UYA5GMB5>, <@U080A3QP42C>'
-  static readonly defaultConfig = `
-    // Shows the avatars of everyone who reacted next to each reaction
-    "WhoReacted": {
-      "enabled": false,
-      // how many avatars to show before the rest collapse into a +N
-      "maxAvatars": 4
-    }
-  `
+  static readonly defaultConfig = {
+    enabled: false,
+    maxAvatars: opt(
+      4,
+      'how many avatars to show before the rest collapse into a +N'
+    ),
+  }
 
   private readonly ReactorsContext = React.createContext<string[]>(NO_REACTORS)
-  private readonly maxAvatars = avatarLimit(this.config.maxAvatars)
+  private get maxAvatars() {
+    return avatarLimit(this.config.maxAvatars)
+  }
 
   private readonly Avatar = ({ userId }: { userId: string }) => {
     const profile = this.api.members.useMember(userId)?.profile

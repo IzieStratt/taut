@@ -12,6 +12,7 @@ const globalPluginShim: Plugin = {
     build.onLoad({ filter: /.*/, namespace: 'taut-global' }, () => ({
       contents: `
         export const TautPlugin = globalThis.TautPlugin
+        export const opt = globalThis.TautOpt
         export default TautPlugin
       `,
       loader: 'js',

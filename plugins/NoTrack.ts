@@ -32,18 +32,15 @@ function globToRegex(pattern: string): RegExp {
 
 const BLOCKED_RESPONSE = new Response('', { status: 200 })
 
-export default class NoTrack extends TautPlugin {
+export default class NoTrack extends TautPlugin<typeof NoTrack> {
   static readonly id = 'NoTrack'
   static readonly pluginName = 'No Tracking'
   static readonly description =
     "Blocks Slack's built-in tracking and analytics requests"
   static readonly authors = '<@U080A3QP42C>, <@U06UYA5GMB5>'
-  static readonly defaultConfig = `
-    // Blocks Slack's built-in tracking and analytics requests
-    "NoTrack": {
-      "enabled": true
-    }
-  `
+  static readonly defaultConfig = {
+    enabled: true,
+  }
 
   private matchers: RegExp[] = []
   private running = false

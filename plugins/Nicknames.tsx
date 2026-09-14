@@ -14,17 +14,14 @@ type MemberLike = {
 
 const NICKNAME_ITEM_KEY = 'taut-nicknames__set'
 
-export default class Nicknames extends TautPlugin {
+export default class Nicknames extends TautPlugin<typeof Nicknames> {
   static readonly id = 'Nicknames'
   static readonly pluginName = 'Nicknames'
   static readonly description = 'Locally nickname other members across Slack'
   static readonly authors = '<@U06UYA5GMB5>'
-  static readonly defaultConfig = `
-    // Locally nickname other members
-    "Nicknames": {
-      "enabled": true
-    }
-  `
+  static readonly defaultConfig = {
+    enabled: true,
+  }
 
   private readonly MemberIdContext = React.createContext<string | null>(null)
 

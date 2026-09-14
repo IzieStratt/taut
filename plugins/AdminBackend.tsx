@@ -32,18 +32,15 @@ const TOOLS = [
   },
 ]
 
-export default class AdminBackend extends TautPlugin {
+export default class AdminBackend extends TautPlugin<typeof AdminBackend> {
   static readonly id = 'AdminBackend'
   static readonly pluginName = 'Admin Backend'
   static readonly description =
     'Adds buttons to open a member in Hack Club tools'
   static readonly authors = '<@U06UYA5GMB5>, <@U080A3QP42C>'
-  static readonly defaultConfig = `
-    // Adds buttons to open a member in Hack Club tools
-    "AdminBackend": {
-      "enabled": false
-    }
-  `
+  static readonly defaultConfig = {
+    enabled: false,
+  }
 
   private readonly MemberIdContext = React.createContext<string | null>(null)
 

@@ -1,4 +1,4 @@
-// Shows a red squiggle on users who are not IDV verified
+// Shows a red squiggle on users who are not IDV verified, and orange when verified ID but >18
 
 import { TautPlugin } from '$taut'
 
@@ -6,19 +6,15 @@ const global = globalThis as any
 
 type IdvStatusType = 'eligible' | 'over_18' | 'unverified' | 'loading'
 
-export default class IdvStatus extends TautPlugin {
+export default class IdvStatus extends TautPlugin<typeof IdvStatus> {
   static readonly id = 'IdvStatus'
   static readonly pluginName = 'IDV Status'
   static readonly description =
-    'Shows a red squiggle on users who are not IDV eligible'
+    'Shows a red squiggle on users who are not IDV eligible, and orange when verified ID but >18'
   static readonly authors = '<@U08PUHSMW4V>'
-  static readonly defaultConfig = `
-    // Shows a red squiggle on users who are not IDV verified
-    // Shows an orange squiggle on users who verified ID but have since become >18
-    "IdvStatus": {
-      "enabled": false
-    }
-  `
+  static readonly defaultConfig = {
+    enabled: false,
+  }
 
   private cache = new this.api.Cache<IdvStatusType>('idv_status', {
     ttl: 24 * 60 * 60 * 1000,
