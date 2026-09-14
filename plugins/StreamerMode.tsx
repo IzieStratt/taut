@@ -24,7 +24,6 @@ const ROOT_CLASS = 'taut-streamer-mode'
 const SHARED_KEY = 'active'
 const STORAGE_KEY = 'taut_streamer_mode_active'
 const IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform)
-const CHANNEL_ID = /^[CDG][A-Z0-9]{5,}$/
 
 function parseShortcut(value: unknown): Shortcut | null {
   if (typeof value !== 'string') return null
@@ -101,12 +100,10 @@ export default class StreamerMode extends TautPlugin {
   /** a screen share turned it on, so the share ending turns it off */
   private autoActivated = false
   private originalGetDisplayMedia: MediaDevices['getDisplayMedia'] | null = null
-  private restyling: number | null = null
-  private styleKey = ''
 
   start() {
     this.apply(this.active.get())
-    this.restyle()
+    this.api.setStyle(this.css(), 'streamer')
     this.injectButton()
 
     if (this.options.silenceNotifications) {
@@ -136,14 +133,11 @@ export default class StreamerMode extends TautPlugin {
     }
 
     if (this.options.autoOnScreenShare) this.watchScreenShares()
-    this.api.redux.subscribe(this.onStoreChange)
     this.log('Started')
   }
 
   stop() {
     document.documentElement.classList.remove(ROOT_CLASS)
-    if (this.restyling !== null) cancelAnimationFrame(this.restyling)
-    this.restyling = null
     if (this.originalGetDisplayMedia) {
       navigator.mediaDevices.getDisplayMedia = this.originalGetDisplayMedia
       this.originalGetDisplayMedia = null
@@ -159,29 +153,6 @@ export default class StreamerMode extends TautPlugin {
   private apply(active: boolean) {
     this.active.set(active)
     document.documentElement.classList.toggle(ROOT_CLASS, active)
-  }
-
-  private onStoreChange = () => {
-    this.restyling ??= requestAnimationFrame(() => {
-      this.restyling = null
-      this.restyle()
-    })
-  }
-
-  private restyle() {
-    const state = this.api.redux.getRawState()
-    const entity = state?.route?.params?.entityId
-    const open =
-      typeof entity === 'string' && CHANNEL_ID.test(entity) ? entity : ''
-    const ids: string[] = []
-    for (const id in state?.channels ?? {})
-      if (state.channels[id]?.is_private === true) ids.push(id)
-    ids.sort()
-
-    const key = `${open}|${ids.join()}`
-    if (key === this.styleKey) return
-    this.styleKey = key
-    this.api.setStyle(this.css(open, ids), 'streamer')
   }
 
   private watchScreenShares() {
@@ -266,52 +237,52 @@ export default class StreamerMode extends TautPlugin {
     )
   }
 
-  private css(open: string, privateIds: string[]): string {
+  private css(): string {
     const root = `html.${ROOT_CLASS}`
     const { blur, hideVip } = this.options
-    const sidebarRow = `.p-channel_sidebar__channel[data-qa-channel-sidebar-channel-type="private"]:not(.p-channel_sidebar__channel--selected)`
-    const entity = `.c-inline_channel_entity:has([data-inline-channel-type-icon^="lock"])${
-      open ? `:not([data-channel-id="${open}"])` : ''
-    }`
-    const activityItem = `[data-qa="activity-item-container"]`
-    const preview = `[data-qa="activity-item-message"]`
+    const lock = '[data-inline-channel-type-icon^="lock"]'
+    const sidebarRow =
+      '.p-channel_sidebar__channel:is([data-qa-channel-sidebar-channel-type="private"], [data-qa-channel-sidebar-channel-type="mpim"]):not([data-qa-channel-sidebar-channel-is-selected="true"])'
+    const activityRow = '[data-qa="activity-item-container"]'
+    const preview = '[data-qa="activity-item-message"]'
 
-    const threadRows = privateIds
-      .filter((id) => id !== open)
-      .map((id) => `[data-item-key*="${id}"]`)
-    const suggestions = privateIds
-      .filter((id) => id !== open)
-      .map((id) => `[data-id="${id}"]`)
-    const threadRow = threadRows.length
-      ? `.c-virtual_list__item:is(${threadRows.join(', ')}) :is(.c-message_kit__gutter__left, .c-message_kit__gutter__right)`
-      : ''
-    const suggestion = suggestions.length
-      ? `.c-search_autocomplete__suggestion_item:is(${suggestions.join(', ')})`
-      : ''
+    const destination = '.p-activity_row_content__destination_tag'
+
+    const privateDestination = `${destination}:has(${lock})`
+    const groupDestination = `${destination}:not(:has(.c-inline_channel_entity))`
+
+    const dmsRow =
+      '[data-qa="dms_channel"]:not(:has(.p-activity_ia4_page__item--selected))'
+    const groupName = `${dmsRow}:has(.c-base_icon_image_stacked) [data-qa="dms-channel-sender-name"]`
+
+    const threadBody =
+      '.p-threads_view .c-virtual_list__item :is(.c-message_kit__gutter__left, .c-message_kit__gutter__right)'
+    const suggestion =
+      '.c-search_autocomplete__suggestion_item:is(:has(.c-channel_icon svg[data-qa^="lock"]), [data-type="mpim"])'
     const suggestionText = '.c-search_autocomplete__suggestion_item_left'
-    const blurred = [
-      `${root} ${sidebarRow} .p-channel_sidebar__name`,
-      `${root} ${entity} .c-channel_entity__name`,
-      `${root} ${activityItem}:has([data-inline-channel-type-icon^="lock"]) ${preview}`,
-      `${root} ${activityItem}:has([data-qa="direct-messages"]) ${preview}`,
-      `${root} [data-qa="dms_channel"] ${preview}`,
-      ...(threadRow ? [`${root} .p-threads_view ${threadRow}`] : []),
-      ...(suggestion ? [`${root} ${suggestion} ${suggestionText}`] : []),
-    ]
-    const revealed = [
-      `${root} .p-channel_sidebar:hover ${sidebarRow} .p-channel_sidebar__name`,
-      `${root} ${entity}:hover .c-channel_entity__name`,
-      `${root} ${activityItem}:hover ${preview}`,
-      `${root} [data-qa="dms_channel"]:hover ${preview}`,
-      ...(threadRow ? [`${root} .p-threads_view:hover ${threadRow}`] : []),
-      ...(suggestion ? [`${root} ${suggestion}:hover ${suggestionText}`] : []),
-    ]
+
+    const mention = `.c-inline_channel_entity:has(${lock}):not(${activityRow} *) .c-channel_entity__name`
+
+    const inRow = `:is(${preview}, ${destination}, [data-qa="dms-channel-sender-name"])`
     return `
-      ${blurred.join(',\n      ')} {
+      ${root} ${sidebarRow} .p-channel_sidebar__name,
+      ${root} ${mention},
+      ${root} ${activityRow} :is(${privateDestination}, ${groupDestination}),
+      ${root} ${activityRow}:has(${lock}) ${preview},
+      ${root} ${activityRow}:has([data-qa="direct-messages"]) ${preview},
+      ${root} ${dmsRow} ${preview},
+      ${root} ${groupName},
+      ${root} ${threadBody},
+      ${root} ${suggestion} ${suggestionText} {
         filter: blur(${blur}px);
         transition: filter 0.15s;
       }
-      ${revealed.join(',\n      ')} {
+      ${root} .p-channel_sidebar:hover ${sidebarRow} .p-channel_sidebar__name,
+      ${root} .c-inline_channel_entity:hover .c-channel_entity__name,
+      ${root} ${activityRow}:hover ${inRow},
+      ${root} ${dmsRow}:hover ${inRow},
+      ${root} .p-threads_view:hover ${threadBody},
+      ${root} ${suggestion}:hover ${suggestionText} {
         filter: none;
       }
       ${
