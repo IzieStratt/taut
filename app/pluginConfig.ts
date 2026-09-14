@@ -47,9 +47,7 @@ function checkValue(value: unknown, path: string): void {
 
 export function validateDefaultConfig(defaults: unknown): void {
   if (typeof defaults === 'string') {
-    throw new Error(
-      'defaultConfig is an object since Taut v2.14'
-    )
+    throw new Error('defaultConfig is an object since Taut v2.14')
   }
   if (!isPlainObject(defaults)) {
     throw new Error('defaultConfig must be a plain object')
