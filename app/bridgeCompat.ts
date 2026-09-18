@@ -39,10 +39,14 @@ function toResponse(result: Response | SerialResponse): Response {
       : 200
   // Prefer the lossless base64 body when the bridge provides it: the UTF-8
   // `body` string round-trip mangles binary payloads (e.g. images)
-  const body =
-    typeof result?.bodyBase64 === 'string'
-      ? base64ToBytes(result.bodyBase64)
-      : (result?.body ?? '')
+  let body: BodyInit = result?.body ?? ''
+  if (typeof result?.bodyBase64 === 'string') {
+    try {
+      body = base64ToBytes(result.bodyBase64)
+    } catch {
+      // Fall back to the legacy body if a bridge sends malformed base64
+    }
+  }
   return new Response(NULL_BODY_STATUS.has(status) ? null : body, {
     status,
     statusText: result?.statusText ?? '',
@@ -182,3 +186,4 @@ export function normalizeBridge(raw: TautBridge): NormalizedBridge {
     blobStore: localStorageBlobStore,
   }
 }
+
