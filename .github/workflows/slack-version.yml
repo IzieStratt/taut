@@ -37,7 +37,7 @@ jobs:
           curl -fsSL "https://downloads.slack-edge.com/desktop-releases/linux/x64/$LATEST/slack-desktop-$LATEST-amd64.deb" -o slack.deb
           ar p slack.deb data.tar.xz | tar -xJ --strip-components=5 ./usr/lib/slack/resources/app.asar
           npx --yes @electron/asar extract-file app.asar package.json
-          echo "slack=$(jq -r .devDependencies.electron package.json)" >> "$GITHUB_OUTPUT"
+          echo "slack=$(jq -r '.devDependencies.electron // empty' package.json)" >> "$GITHUB_OUTPUT"
           echo "taut=$(jq -r .devDependencies.electron "$GITHUB_WORKSPACE/package.json")" >> "$GITHUB_OUTPUT"
           rm package.json
           # the arm64 linux build rebuilds these from public packages, flag drift
@@ -76,7 +76,9 @@ jobs:
             pkg.slackVersion = process.env.LATEST
             fs.writeFileSync("desktop/package.json", `${JSON.stringify(pkg, null, 2)}\n`)
           '
-          if [ "$SLACK_ELECTRON" = "$TAUT_ELECTRON" ]; then
+          if [ -z "$SLACK_ELECTRON" ]; then
+            ELECTRON_NOTE=" Slack app.asar has no electron version; Electron left at $TAUT_ELECTRON."
+          elif [ "$SLACK_ELECTRON" = "$TAUT_ELECTRON" ]; then
             ELECTRON_NOTE=""
           else
             npm install --package-lock-only --save-exact --no-audit --no-fund "electron@$SLACK_ELECTRON"
