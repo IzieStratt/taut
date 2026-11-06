@@ -24,7 +24,7 @@ Turn plugins on and off in `Preferences` > `Taut`, where you can also write your
 
 <!-- begin plugins (written by scripts/readme.ts) -->
 
-<details><summary>All 39 plugins</summary>
+<details><summary>All 40 plugins</summary>
 
 #### Messages
 
@@ -59,6 +59,7 @@ Turn plugins on and off in `Preferences` > `Taut`, where you can also write your
 - **Human Count**: Leaves apps, and optionally guests, out of the channel header's member count
 - **IDV Status** (Hack Club only): Underlines people who aren't IDV eligible in red, and IDV over 18 in orange
 - **Last Seen**: Shows on someone's profile when they were last seen
+- **Local Time**: Shows each person's local time beside their messages and on their profile, even while they're out of office
 - **Nicknames**: Renames members across Slack
 - **Office Hours**: Sets you out of office or away on a weekly schedule
 
