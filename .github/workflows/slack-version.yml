@@ -66,6 +66,9 @@ jobs:
           if gh pr list --head "$BRANCH" --state open --json number --jq length | grep -qv '^0$'; then
             echo "pull request for $BRANCH already open"; exit 0
           fi
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            echo "branch $BRANCH already exists on origin with no open PR; open it or delete it: https://github.com/$GITHUB_REPOSITORY/pull/new/$BRANCH"; exit 0
+          fi
           git config user.name github-actions
           git config user.email github-actions@github.com
           git switch -c "$BRANCH"
